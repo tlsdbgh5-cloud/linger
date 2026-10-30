@@ -8,7 +8,7 @@
 <style>[hidden]{display:none !important} *,*::before,*::after{box-sizing:border-box} html,body{margin:0} body{-webkit-text-size-adjust:100%; touch-action:manipulation}</style>
 <title>스테이</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600&family=Noto+Sans+KR:wght@400;500;700&family=Nanum+Pen+Script&display=swap">
 <style>
 /* Layout: full-bleed 3D scene, glass HUD pinned to the four corners. Single dark look by choice. */
 :root {
@@ -262,6 +262,38 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
   .place-name { font-size: 15px; }
   .seg button { padding: 0 9px; }
 }
+
+/* note board + busking sheets */
+#board-sheet, #busk-sheet {
+  left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100vw - 32px)); flex-direction: column; gap: 12px; padding: 16px; z-index: 9;
+  max-height: calc(100% - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+#busk-sheet { width: min(380px, calc(100vw - 32px)); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sheet-head strong { font: 600 18px var(--display); }
+.sheet-head span { font-size: 12.5px; color: var(--muted); margin-left: 8px; font-variant-numeric: tabular-nums; }
+#board-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; overflow-y: auto; min-height: 90px; padding: 6px 4px 10px; overscroll-behavior: contain; }
+.note-card { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-height: 112px; padding: 14px 12px 10px; border-radius: 3px; color: #3a2e26; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.note-card p { margin: 0; font: 22px/1.25 "Nanum Pen Script", "Noto Sans KR", cursive; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
+.note-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11.5px; color: #6a5a4c; }
+.note-foot button { border: 0; background: rgba(58,46,38,0.1); color: #4a3a2e; font: 500 11.5px var(--body); border-radius: 8px; min-height: 28px; padding: 0 9px; cursor: pointer; }
+.board-empty { grid-column: 1 / -1; margin: 6px 2px; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+#board-input { width: 100%; box-sizing: border-box; min-height: 64px; resize: none; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,0.25); color: var(--paper); font: 15px/1.5 var(--body); padding: 10px 12px; -webkit-user-select: text; user-select: text; }
+.board-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.note-colors { display: flex; gap: 6px; align-items: center; }
+.note-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.note-color[aria-pressed="true"] { border-color: var(--paper); box-shadow: 0 0 0 2px var(--ink) inset; }
+#board-left { margin-left: 4px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#board-note { margin: 0; font-size: 12px; color: var(--muted); }
+#board-sheet .btn, #busk-sheet .btn { min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--line); background: transparent; color: var(--paper); font: 500 14px var(--body); cursor: pointer; }
+#board-sheet .btn.primary, #busk-sheet .btn.primary { background: var(--lamp); border-color: var(--lamp); color: var(--ink); font-weight: 700; }
+#busk-song { margin: 0; font-size: 13.5px; color: var(--lamp); }
+#busk-sheet p.busk-desc { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+#busk-sheet .row { display: flex; gap: 8px; }
+#busk-sheet .row .btn { flex: 1; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; }
 </style>
 
 <canvas id="scene" aria-label="사람들이 함께 머무는 3D 쉼터"></canvas>
@@ -445,6 +477,36 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
     <button type="submit" class="btn primary">보내기</button>
   </div>
   <button type="button" class="btn" id="chat-close">닫기</button>
+</form>
+
+
+<form class="hud panel" id="board-sheet" hidden aria-labelledby="board-title">
+  <div class="sheet-head"><div><strong id="board-title">쪽지 게시판</strong><span id="board-count"></span></div><button type="button" class="btn" id="board-close">닫기</button></div>
+  <div id="board-list"></div>
+  <label for="board-input" class="sr-only">새 쪽지</label>
+  <textarea id="board-input" maxlength="80" rows="2" placeholder="이곳에 남기고 싶은 한 줄 (이름은 남지 않아요)"></textarea>
+  <div class="board-row">
+    <div class="note-colors" role="group" aria-label="쪽지 색">
+      <button type="button" class="note-color" data-color="yellow" aria-label="노란 쪽지" aria-pressed="true" style="background:#f6e3a1"></button>
+      <button type="button" class="note-color" data-color="pink" aria-label="분홍 쪽지" aria-pressed="false" style="background:#f4c4c4"></button>
+      <button type="button" class="note-color" data-color="mint" aria-label="민트 쪽지" aria-pressed="false" style="background:#c7e6cf"></button>
+      <button type="button" class="note-color" data-color="sky" aria-label="하늘 쪽지" aria-pressed="false" style="background:#c6dbf2"></button>
+      <button type="button" class="note-color" data-color="lilac" aria-label="보라 쪽지" aria-pressed="false" style="background:#ddd0ef"></button>
+      <span id="board-left">0 / 80</span>
+    </div>
+    <button type="submit" class="btn primary">쪽지 붙이기</button>
+  </div>
+  <p id="board-note"></p>
+</form>
+
+<form class="hud panel" id="busk-sheet" hidden aria-labelledby="busk-title">
+  <div class="sheet-head"><strong id="busk-title">윤슬의 버스킹</strong><button type="button" class="btn" id="busk-close">닫기</button></div>
+  <p id="busk-song"></p>
+  <p class="busk-desc">가상 뮤지션 윤슬이 밤마다 한강 잔디밭에서 기타를 쳐요. 마음에 들면 박수나 동전 하나로 응원해 주세요.</p>
+  <div class="row">
+    <button type="button" class="btn" id="busk-clap">박수 보내기</button>
+    <button type="button" class="btn primary" id="busk-tip">500원 응원하기</button>
+  </div>
 </form>
 
 <div id="talk-caption" hidden aria-live="polite">
@@ -3799,6 +3861,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
       onlineN.textContent = String(Math.max(1, ch.peers.filter((p) => p.kind === "viewer").length));
       if (!picker.hidden) updatePickerCounts(ch.peers);
     }, () => { onlineEl.hidden = true; });
+    rm.on("busk", (msg) => {
+      if (msg.sameTab) return;
+      const r = remotes.get(msg.peer);
+      if (!r || r.world !== "river") return;
+      const k = msg.data && msg.data.k;
+      if (k === "tip") buskTip(true); else if (k === "clap") { buskClap(true); say(r.p.head, "짝짝짝", true); }
+    });
     rm.on("bow", (msg) => {
       if (msg.sameTab) return;
       const r = remotes.get(msg.peer);
@@ -4094,7 +4163,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
     feedstop: ["수유 끝", "기록하기"],
     situp: ["일어나 앉기", "이부자리"],
     bfire: ["장작 넣기", "바닷가 모닥불"],
-    fw: ["폭죽 터뜨리기", "밤바다"]
+    fw: ["폭죽 터뜨리기", "밤바다"],
+    board: ["쪽지 게시판", "읽기 · 붙이기"],
+    busk: ["버스킹 응원", "박수 · 500원"]
   };
   function rockAt(i) { return reduced ? 0 : Math.sin(clock * 1.3 + i) * 0.07; }
   let ctxMode = null, ctxCool = 0;
@@ -4114,6 +4185,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
       else if (nearestCat() >= 0) mode = "cat";
     }
     if (!mode && world === "mountain" && !audio && Math.hypot(player.x - LULL.x, player.z - LULL.z) < 6.5) mode = "lull";
+    if (world === "river" && (Math.hypot(player.x - BUSK.x, player.z - BUSK.z) < 5.5 || (player.seated && isBuskSeat(player.seat)))) mode = "busk";
+    if (!player.seated && nearBoard(player.x, player.z, 2.4)) mode = "board";
     if (mode === ctxMode) return;
     ctxMode = mode;
     ctxBtn.hidden = !mode;
@@ -4138,8 +4211,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
       emit("firework", { x: Math.round(fx * 10) / 10, z: Math.round(fz * 10) / 10, c });
     }
     else if (ctxMode === "cat") { const i = nearestCat(); if (i >= 0) petCat(i, false); }
+    else if (ctxMode === "board") { ctxCool = clock + 0.2; openBoard(); }
+    else if (ctxMode === "busk") { ctxCool = clock + 0.2; openBusk(); }
   });
   function updatePlaces(dt) {
+    updateExtras(dt);
     fireLevel = Math.max(0.7, fireLevel - dt * 0.02);
     flames.forEach((f) => {
       const u = f.userData;
@@ -4258,6 +4334,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
     sheet.hidden = true;
     chatSheet.hidden = true;
     barSheet.hidden = true;
+    closeExtraSheets();
     stopVoice();
     capEl.hidden = true;
     world = w;
@@ -4273,13 +4350,437 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
     if (audio) audio.setWorld(w);
     pushPresence();
   }
+  // =====================================================================
+  // 쪽지 게시판: every place but the talk and the story room has a little
+  // board. Notes are shared through the db when the page has it, and kept
+  // on this device otherwise.
+  // =====================================================================
+  const NOTE_COLORS = { yellow: "#f6e3a1", pink: "#f4c4c4", mint: "#c7e6cf", sky: "#c6dbf2", lilac: "#ddd0ef" };
+  const NOTE_MAX = 80;
+  const NOTE_BAD = ["씨발", "시발", "ㅅㅂ", "병신", "ㅂㅅ", "좆", "개새", "미친년", "미친놈", "fuck", "shit"];
+  // where each board stands: x, z, the point it faces, and whether it hangs on a wall
+  const BOARD_SPOTS = {
+    mountain: { x: -3.4, z: 6.0, look: [0, 9], wall: false, scene: () => scene, ground: () => 0 },
+    hanok: { x: -7.6, z: 0.4, look: [0, 1.5], wall: false, scene: () => sceneHanok, ground: () => 0 },
+    train: { x: 1.75, z: -4.42, look: [1.75, 0], wall: true, scene: () => sceneTrain, ground: () => 0 },
+    sea: { x: -5.2, z: 8.2, look: [0, 6], wall: false, scene: () => sceneSea, ground: () => 0 },
+    cafe: { x: 1.9, z: -11.86, look: [1.9, 0], wall: true, scene: () => sceneCafe, ground: () => 0 },
+    river: { x: 4.6, z: 10.8, look: [0, 9], wall: false, scene: () => sceneRiver, ground: () => 0 },
+    nurse: { x: -3.6, z: 4.88, look: [-3.6, 0], wall: true, scene: () => sceneNurse, ground: () => 0 }
+  };
+  const WORLD_NAME = { mountain: "산마루", hanok: "한옥 마당", train: "밤기차", sea: "밤바다", cafe: "스터디카페", river: "한강", nurse: "밤중수유" };
+  const boards = {};
+  const corkMat = new THREE.MeshLambertMaterial({ color: 0xb98a5a });
+  const frameMat = new THREE.MeshLambertMaterial({ color: 0x5a3e2a });
+  Object.keys(BOARD_SPOTS).forEach((w) => {
+    const s = BOARD_SPOTS[w];
+    const g = new THREE.Group();
+    const W = s.wall ? 0.95 : 1.25, H = s.wall ? 0.72 : 0.92, base = s.wall ? 1.05 : 0.78;
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, H + 0.1, 0.06), frameMat);
+    frame.position.y = base + H / 2;
+    g.add(frame);
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = Math.round(512 * H / W);
+    const tex = new THREE.CanvasTexture(cv);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: tex }));
+    face.position.set(0, base + H / 2, 0.035);
+    g.add(face);
+    if (!s.wall) {
+      [-1, 1].forEach((k) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, base + 0.05, 0.07), frameMat);
+        leg.position.set(k * (W / 2 - 0.05), (base + 0.05) / 2, -0.02);
+        g.add(leg);
+      });
+      const roofB = new THREE.Mesh(new THREE.BoxGeometry(W + 0.3, 0.06, 0.26), frameMat);
+      roofB.position.set(0, base + H + 0.1, 0.05);
+      g.add(roofB);
+    }
+    // a small lamp so the board reads at night
+    const glow = new THREE.PointLight(0xffd9a0, 0.55, 3.2, 2);
+    glow.position.set(0, base + H + 0.25, 0.6);
+    g.add(glow);
+    g.position.set(s.x, s.ground(), s.z);
+    g.rotation.y = Math.atan2(s.look[0] - s.x, s.look[1] - s.z);
+    s.scene().add(g);
+    boards[w] = { g, cv, tex, s };
+  });
+  function nearBoard(x, z, r) {
+    const b = boards[world];
+    if (!b) return false;
+    return Math.hypot(x - b.s.x, z - b.s.z) < r;
+  }
+  // the free-standing boards are solid
+  function boardBlocks(x, z) {
+    const b = boards[world];
+    return !!b && !b.s.wall && Math.hypot(x - b.s.x, z - b.s.z) < 0.7;
+  }
+
+  let noteList = [];                    // [{id, world, text, color, at, by}]
+  let notesDb = null, notesUid = null, notesMode = "local";
+  const hiddenNotes = new Set();
+  try { JSON.parse(localStorage.getItem("stay-hidden-notes") || "[]").forEach((id) => hiddenNotes.add(id)); } catch (e) {}
+  function loadLocalNotes() {
+    try { noteList = JSON.parse(localStorage.getItem("stay-notes") || "[]"); } catch (e) { noteList = []; }
+    if (!Array.isArray(noteList)) noteList = [];
+  }
+  function saveLocalNotes() { try { localStorage.setItem("stay-notes", JSON.stringify(noteList.slice(0, 300))); } catch (e) {} }
+  loadLocalNotes();
+  function notesFor(w) { return noteList.filter((n) => n.world === w && !hiddenNotes.has(n.id)).sort((a, b) => b.at - a.at); }
+
+  function wrapLines(ctx, text, maxW, maxLines) {
+    const out = []; let line = "";
+    for (const ch of text) {
+      if (ch === "\n") { out.push(line); line = ""; continue; }
+      if (ctx.measureText(line + ch).width > maxW) { out.push(line); line = ch; } else line += ch;
+      if (out.length >= maxLines) break;
+    }
+    if (out.length < maxLines && line) out.push(line);
+    if (out.length > maxLines) out.length = maxLines;
+    return out;
+  }
+  function drawNoteBoard(w) {
+    const b = boards[w]; if (!b) return;
+    const c = b.cv, ctx = c.getContext("2d"), W = c.width, H = c.height;
+    ctx.fillStyle = "#b98a5a"; ctx.fillRect(0, 0, W, H);
+    // cork speckle, fixed per board so it does not shimmer
+    let seed = w.length * 97;
+    const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+    for (let i = 0; i < 900; i++) { ctx.fillStyle = rnd() < 0.5 ? "rgba(120,80,40,0.25)" : "rgba(230,190,140,0.2)"; ctx.fillRect(rnd() * W, rnd() * H, 2, 2); }
+    ctx.fillStyle = "#3b2a1c"; ctx.font = "600 34px 'Nanum Pen Script', 'Noto Sans KR', sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(WORLD_NAME[w] + " 쪽지 게시판", W / 2, 44);
+    const list = notesFor(w).slice(0, 9);
+    if (!list.length) {
+      ctx.fillStyle = "#fbf3dc"; ctx.save(); ctx.translate(W / 2, H / 2 + 20); ctx.rotate(-0.04);
+      ctx.fillRect(-120, -60, 240, 120); ctx.fillStyle = "#5a4636"; ctx.font = "30px 'Nanum Pen Script', 'Noto Sans KR', sans-serif";
+      ctx.fillText("첫 쪽지를", 0, -8); ctx.fillText("붙여 주세요", 0, 28); ctx.restore();
+    }
+    const cols = 3, cw = (W - 40) / cols, rows = 3, top = 64, ch = (H - top - 16) / rows;
+    list.forEach((n, i) => {
+      const cx = 20 + (i % cols) * cw + cw / 2, cy = top + Math.floor(i / cols) * ch + ch / 2;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(((i * 37) % 9 - 4) * 0.012);
+      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(-cw / 2 + 12, -ch / 2 + 10, cw - 20, ch - 16);
+      ctx.fillStyle = NOTE_COLORS[n.color] || NOTE_COLORS.yellow; ctx.fillRect(-cw / 2 + 8, -ch / 2 + 6, cw - 20, ch - 16);
+      ctx.fillStyle = "#c0392b"; ctx.beginPath(); ctx.arc(0, -ch / 2 + 14, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#3a2e26"; ctx.font = "24px 'Nanum Pen Script', 'Noto Sans KR', sans-serif"; ctx.textAlign = "center";
+      wrapLines(ctx, n.text, cw - 36, 3).forEach((l, k) => ctx.fillText(l, -2, -ch / 2 + 40 + k * 24));
+      ctx.restore();
+    });
+    b.tex.needsUpdate = true;
+  }
+  function drawAllBoards() { Object.keys(boards).forEach(drawNoteBoard); }
+  drawAllBoards();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawAllBoards).catch(() => {});
+
+  // ---------- the board sheet: read everything, pin a new one ----------
+  const boardSheet = document.getElementById("board-sheet");
+  const boardTitle = document.getElementById("board-title"), boardCount = document.getElementById("board-count");
+  const boardList = document.getElementById("board-list"), boardInput = document.getElementById("board-input");
+  const boardLeft = document.getElementById("board-left"), boardNote = document.getElementById("board-note");
+  let boardColor = "yellow";
+  boardSheet.querySelectorAll(".note-color").forEach((b) => b.addEventListener("click", () => {
+    boardColor = b.dataset.color;
+    boardSheet.querySelectorAll(".note-color").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  }));
+  boardInput.addEventListener("input", () => { boardLeft.textContent = boardInput.value.length + " / " + NOTE_MAX; });
+  function ago(t) {
+    const s = Math.max(0, (Date.now() - t) / 1000);
+    if (s < 60) return "방금";
+    if (s < 3600) return Math.floor(s / 60) + "분 전";
+    if (s < 86400) return Math.floor(s / 3600) + "시간 전";
+    return Math.floor(s / 86400) + "일 전";
+  }
+  function renderBoardSheet() {
+    if (boardSheet.hidden) return;
+    const list = notesFor(world);
+    boardTitle.textContent = (WORLD_NAME[world] || "") + " 쪽지 게시판";
+    boardCount.textContent = list.length ? list.length + "장" : "";
+    boardList.textContent = "";
+    if (!list.length) {
+      const e = document.createElement("p"); e.className = "board-empty";
+      e.textContent = "아직 붙은 쪽지가 없어요. 이곳에 머문 마음을 한 줄 남겨 보세요. 다음에 오는 사람이 읽게 돼요.";
+      boardList.appendChild(e);
+    }
+    list.forEach((n, i) => {
+      const card = document.createElement("article");
+      card.className = "note-card";
+      card.style.background = NOTE_COLORS[n.color] || NOTE_COLORS.yellow;
+      card.style.transform = "rotate(" + (((i * 37) % 9 - 4) * 0.5) + "deg)";
+      const p = document.createElement("p"); p.textContent = n.text; card.appendChild(p);
+      const foot = document.createElement("div"); foot.className = "note-foot";
+      const when = document.createElement("span"); when.textContent = ago(n.at); foot.appendChild(when);
+      const act = document.createElement("button"); act.type = "button";
+      const mine = n.by && n.by === (notesUid || "local");
+      act.textContent = mine ? "떼기" : "가리기";
+      act.setAttribute("aria-label", mine ? "내 쪽지 떼기" : "이 쪽지를 내 화면에서 가리기");
+      act.addEventListener("click", () => (mine ? removeNote(n) : hideNote(n)));
+      foot.appendChild(act); card.appendChild(foot);
+      boardList.appendChild(card);
+    });
+    boardNote.textContent = notesMode === "db" ? "쪽지는 이곳에 들르는 모두에게 보여요. 이름은 남지 않아요." : "지금은 쪽지가 이 기기에만 저장돼요.";
+  }
+  function openBoard() {
+    closeExtraSheets();
+    sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true;
+    boardSheet.hidden = false;
+    renderBoardSheet();
+  }
+  document.getElementById("board-close").addEventListener("click", () => { boardSheet.hidden = true; });
+  let lastNoteAt = 0;
+  boardSheet.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = boardInput.value.replace(/[\u0000-\u0009\u000b-\u001f]/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, NOTE_MAX);
+    if (!text) { toast("쪽지에 한 줄을 적어 주세요"); return; }
+    const low = text.toLowerCase().replace(/\s/g, "");
+    if (NOTE_BAD.some((w) => low.includes(w))) { toast("그 표현은 쪽지로 붙일 수 없어요"); return; }
+    if (Date.now() - lastNoteAt < 20000) { toast("쪽지는 20초에 한 장씩 붙일 수 있어요"); return; }
+    lastNoteAt = Date.now();
+    const n = { world, text, color: boardColor, at: Date.now(), by: notesUid || "local" };
+    boardInput.value = ""; boardLeft.textContent = "0 / " + NOTE_MAX;
+    if (notesMode === "db") {
+      try { await notesDb.collection("notes").add(n); toast("쪽지를 붙였어요"); }
+      catch (err) {
+        lastNoteAt = 0;
+        toast(err && err.code === "quota_exceeded" ? "게시판이 가득 찼어요. 잠시 뒤에 다시 붙여 주세요" : "쪽지를 붙이지 못했어요. 다시 해 볼까요?");
+        boardInput.value = text;
+      }
+    } else {
+      n.id = "l" + Date.now().toString(36);
+      noteList.unshift(n); saveLocalNotes(); drawNoteBoard(world); renderBoardSheet();
+      toast("쪽지를 붙였어요");
+    }
+  });
+  async function removeNote(n) {
+    if (notesMode === "db") {
+      try { await notesDb.doc("notes/" + n.id).delete(); toast("쪽지를 뗐어요"); } catch (e) { toast("쪽지를 떼지 못했어요"); }
+    } else {
+      noteList = noteList.filter((x) => x.id !== n.id); saveLocalNotes(); drawNoteBoard(n.world); renderBoardSheet();
+      toast("쪽지를 뗐어요");
+    }
+  }
+  function hideNote(n) {
+    hiddenNotes.add(n.id);
+    try { localStorage.setItem("stay-hidden-notes", JSON.stringify([...hiddenNotes].slice(-500))); } catch (e) {}
+    drawNoteBoard(n.world); renderBoardSheet();
+    toast("이 쪽지를 내 화면에서 가렸어요");
+  }
+  // shared noteList, when this page can keep data
+  if (window.claude && window.claude.use) {
+    Promise.all([window.claude.use("db"), window.claude.use("user")]).then(async ([db, user]) => {
+      if (!db) return;
+      try { notesUid = user && user.id ? await user.id() : null; } catch (e) { notesUid = null; }
+      notesDb = db;
+      db.collection("notes").orderBy("at", "desc").limit(400).onSnapshot((snap) => {
+        notesMode = "db";
+        noteList = snap.docs.map((d) => {
+          const v = d.data() || {};
+          return { id: d.id, world: String(v.world || ""), text: String(v.text || "").slice(0, NOTE_MAX), color: NOTE_COLORS[v.color] ? v.color : "yellow", at: Number(v.at) || 0, by: v.by ? String(v.by) : "" };
+        }).filter((n) => n.text && BOARD_SPOTS[n.world]);
+        drawAllBoards(); renderBoardSheet();
+      }, () => {});
+    }).catch(() => {});
+  }
+
+  // =====================================================================
+  // 한강 버스킹: a made-up musician, 윤슬, plays guitar on the lawn.
+  // Everyone hears the same song at the same time (it follows the clock).
+  // =====================================================================
+  const BUSK = { x: -15.2, z: 8.2 };
+  const buskFace = Math.atan2(-1, 0);      // facing +x, toward the steps and the spawn point
+  const busker = makePerson(91);
+  busker.setSeated(false);
+  busker.root.position.set(BUSK.x, 0.08, BUSK.z);
+  busker.root.rotation.y = buskFace;
+  sceneRiver.add(busker.root);
+  // a guitar held across the body
+  const guitar = new THREE.Group();
+  const gWood = new THREE.MeshLambertMaterial({ color: 0xc8874a }), gDark = new THREE.MeshLambertMaterial({ color: 0x3a2618 });
+  const gBody = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.07, 20), gWood); gBody.rotation.x = Math.PI / 2; gBody.position.set(-0.04, 0, 0);
+  const gBody2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.07, 20), gWood); gBody2.rotation.x = Math.PI / 2; gBody2.position.set(0.12, 0.01, 0);
+  const gHole = new THREE.Mesh(new THREE.CircleGeometry(0.045, 16), gDark); gHole.position.set(0.04, 0.0, -0.037); gHole.rotation.y = Math.PI;
+  const gNeck = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.045, 0.03), gDark); gNeck.position.set(0.42, 0.02, -0.01);
+  const gHead = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.06, 0.03), gDark); gHead.position.set(0.66, 0.03, -0.01);
+  guitar.add(gBody, gBody2, gHole, gNeck, gHead);
+  guitar.position.set(-0.02, 0.15, -0.2);
+  guitar.rotation.z = 0.35;
+  busker.upper.add(guitar);
+  // bkMic stand, a small amp, an open guitar case for coins
+  const buskStage = new THREE.Group();
+  const metal = new THREE.MeshLambertMaterial({ color: 0x2a2c30 });
+  const bkPole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.05, 8), metal); bkPole.position.set(0.55, 0.52, 0); buskStage.add(bkPole);
+  const bkMic = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), metal); bkMic.position.set(0.5, 1.07, 0); buskStage.add(bkMic);
+  const amp = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.36, 0.26), new THREE.MeshLambertMaterial({ color: 0x1e1e22 })); amp.position.set(-0.1, 0.18, 0.55); buskStage.add(amp);
+  const ampFace = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.26), new THREE.MeshLambertMaterial({ color: 0x4a4038 })); ampFace.position.set(-0.1, 0.18, 0.42); ampFace.rotation.y = Math.PI; buskStage.add(ampFace);
+  const caseM = new THREE.MeshLambertMaterial({ color: 0x2b1d14 }), caseIn = new THREE.MeshLambertMaterial({ color: 0x7a2a32 });
+  const gCase = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.9), caseM); gCase.position.set(0.95, 0.03, 0.15); buskStage.add(gCase);
+  const gCaseIn = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.82), caseIn); gCaseIn.position.set(0.95, 0.065, 0.15); buskStage.add(gCaseIn);
+  const coinMat = new THREE.MeshLambertMaterial({ color: 0xe8c45a });
+  const coins = [];
+  function addCoin() {
+    if (coins.length > 40) return;
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.008, 12), coinMat);
+    c.position.set(0.95 + (Math.random() - 0.5) * 0.26, 0.08, 0.15 + (Math.random() - 0.5) * 0.6);
+    buskStage.add(c); coins.push(c);
+  }
+  for (let i = 0; i < 9; i++) addCoin();
+  // a warm bkPool of light, like a streetlight turned on just for the show
+  const bkSpot = new THREE.PointLight(0xffc78a, 1.6, 7, 2); bkSpot.position.set(1.2, 3.2, 0); buskStage.add(bkSpot);
+  const bkPool = new THREE.Mesh(new THREE.CircleGeometry(2.1, 32), new THREE.MeshBasicMaterial({ color: 0xffd59a, transparent: true, opacity: 0.1, depthWrite: false }));
+  bkPool.rotation.x = -Math.PI / 2; bkPool.position.set(0.9, 0.02, 0); buskStage.add(bkPool);
+  // the sign: who is playing, and the song right now
+  const signCv = document.createElement("canvas"); signCv.width = 512; signCv.height = 320;
+  const signTex = new THREE.CanvasTexture(signCv);
+  const signG = new THREE.Group();
+  const signBoard = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshBasicMaterial({ map: signTex }));
+  signBoard.position.y = 0.95; signG.add(signBoard);
+  const signLeg = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.72, 0.04), frameMat); signLeg.position.set(0, 0.36, -0.02); signG.add(signLeg);
+  signG.position.set(1.4, 0, -1.25); signG.rotation.y = Math.PI / 2 - 0.4; buskStage.add(signG);
+  buskStage.position.set(BUSK.x, 0, BUSK.z);
+  sceneRiver.add(buskStage);
+
+  const SONGS = [
+    { title: "강바람", bpm: 72, chords: [[48, 52, 55, 60, 64], [47, 50, 55, 59, 62], [45, 52, 57, 60, 64], [41, 48, 53, 57, 60]] },
+    { title: "열한 시의 가로등", bpm: 64, chords: [[45, 52, 57, 60, 64], [41, 48, 53, 57, 60], [48, 52, 55, 60, 64], [43, 50, 55, 59, 62]] },
+    { title: "다리 위 불빛", bpm: 80, chords: [[50, 57, 60, 65, 69], [43, 50, 53, 59, 65], [48, 55, 59, 64, 67], [45, 52, 55, 60, 64]] }
+  ];
+  const SONG_LEN = 150; // seconds each song plays before the next
+  function songNow() { const k = Math.floor(Date.now() / 1000 / SONG_LEN); return SONGS[k % SONGS.length]; }
+  function drawSign() {
+    const c = signCv.getContext("2d"), W = signCv.width, H = signCv.height;
+    c.fillStyle = "#1c1612"; c.fillRect(0, 0, W, H);
+    c.strokeStyle = "#f0a84e"; c.lineWidth = 6; c.strokeRect(10, 10, W - 20, H - 20);
+    c.textAlign = "center"; c.fillStyle = "#f0a84e"; c.font = "700 30px 'Noto Sans KR', sans-serif";
+    c.fillText("오늘의 버스킹", W / 2, 66);
+    c.fillStyle = "#f6efe2"; c.font = "600 64px 'Noto Serif KR', serif"; c.fillText("윤슬", W / 2, 148);
+    c.fillStyle = "#cfc6b6"; c.font = "26px 'Noto Sans KR', sans-serif"; c.fillText("가상 뮤지션 · 밤 9시–자정", W / 2, 196);
+    c.fillStyle = "#ffd9a0"; c.font = "500 30px 'Noto Sans KR', sans-serif"; c.fillText("♪ " + songNow().title, W / 2, 256);
+    signTex.needsUpdate = true;
+  }
+  drawSign();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawSign).catch(() => {});
+
+  // a few people already sitting on the grass, and spots for you to join
+  const buskSeats = [];
+  [[-12.6, 6.6], [-12.2, 8.0], [-12.6, 9.4], [-11.0, 7.2], [-10.8, 8.8], [-11.2, 10.3], [-12.9, 11.0]].forEach(([x, z], k) => {
+    const yaw = Math.atan2(-(BUSK.x - x), -(BUSK.z - z));
+    const idx = addWorldSeat("river", V(x, 0.03, z), yaw, "busk");
+    buskSeats.push(idx);
+    if (k === 0 || k === 2 || k === 4) seatNPC(sceneRiver, "river", idx, 360 + k);
+  });
+  const isBuskSeat = (i) => i != null && seatKind[i] === "busk";
+
+  // guitar sound: a plucked string (Karplus–Strong), cached per note
+  let buskBus = null, buskAc = null, buskNext = 0, buskStep = 0, buskTimer = 0, buskVol = 0;
+  const pluckCache = new Map();
+  function pluckBuffer(ac, midi) {
+    if (pluckCache.has(midi)) return pluckCache.get(midi);
+    const f = 440 * Math.pow(2, (midi - 69) / 12), sr = ac.sampleRate, len = Math.floor(sr * 2.2);
+    const buf = ac.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    const p = Math.max(2, Math.round(sr / f)); const ring = new Float32Array(p);
+    for (let i = 0; i < p; i++) ring[i] = Math.random() * 2 - 1;
+    let idx = 0; const decay = midi < 52 ? 0.996 : 0.994;
+    for (let i = 0; i < len; i++) {
+      const nx = (idx + 1) % p; const v = ring[idx];
+      ring[idx] = decay * 0.5 * (v + ring[nx]);
+      d[i] = v * 0.32; idx = nx;
+    }
+    pluckCache.set(midi, buf);
+    return buf;
+  }
+  function pluck(ac, midi, t, v) {
+    const s = ac.createBufferSource(); s.buffer = pluckBuffer(ac, midi);
+    const g = ac.createGain(); g.gain.value = v;
+    s.connect(g); g.connect(buskBus); s.start(t); s.stop(t + 2.2);
+  }
+  const PATTERN = [0, 2, 3, 4, 3, 2, 1, 3]; // fingerpicking over the five chord tones
+  function scheduleBusk() {
+    if (!audio || !audio.ac) return;
+    const ac = audio.ac;
+    if (ac !== buskAc) {
+      buskAc = ac; pluckCache.clear();
+      buskBus = ac.createGain(); buskBus.gain.value = 0;
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3200;
+      buskBus.connect(lp); lp.connect(ac.destination);
+      buskNext = ac.currentTime + 0.1;
+    }
+    if (buskVol < 0.01) { buskNext = ac.currentTime + 0.1; return; }
+    const song = songNow(), eighth = 60 / song.bpm / 2;
+    while (buskNext < ac.currentTime + 0.35) {
+      const bar = Math.floor(buskStep / 8) % song.chords.length, pos = buskStep % 8;
+      const chord = song.chords[bar];
+      pluck(ac, chord[PATTERN[pos]], buskNext, pos === 0 ? 0.9 : 0.55 + Math.random() * 0.15);
+      if (pos === 0 && buskStep % 16 === 0) pluck(ac, chord[4] + 12, buskNext + eighth * 4, 0.35);
+      buskNext += eighth * (pos % 2 ? 0.94 : 1.06); // a little swing, like a person playing
+      buskStep++;
+    }
+  }
+  setInterval(scheduleBusk, 120);
+
+  let lastSongTitle = "", buskTalk = 30, buskBowAt = -10;
+  function updateBusk(dt) {
+    const here = world === "river";
+    const d = Math.hypot(player.x - BUSK.x, player.z - BUSK.z);
+    buskVol = here ? Math.max(0, Math.min(1, 1 - (d - 3) / 16)) : 0;
+    if (buskBus && buskAc) buskBus.gain.setTargetAtTime(buskVol * 0.55, buskAc.currentTime, 0.4);
+    if (!here) return;
+    const song = songNow();
+    if (song.title !== lastSongTitle) { lastSongTitle = song.title; drawSign(); if (d < 14) say(busker.head, "다음 곡은 「" + song.title + "」이에요", false); }
+    // strumming arm, swaying head, a bow when someone tips
+    const beat = clock * song.bpm / 60 * Math.PI;
+    busker.stArms[1].pivot.rotation.x = -0.9 + Math.sin(beat * 2) * 0.22;
+    busker.stArms[1].pivot.rotation.z = 0.5;
+    busker.stArms[0].pivot.rotation.x = -1.2;
+    busker.stArms[0].pivot.rotation.z = -0.9;
+    busker.head.rotation.z = reduced ? 0 : Math.sin(beat * 0.5) * 0.08;
+    const k = clock - buskBowAt;
+    busker.upper.rotation.x = k > 0 && k < 1.4 ? -Math.sin(k / 1.4 * Math.PI) * 0.35 : 0;
+    buskTalk -= dt;
+    if (buskTalk < 0 && d < 12) {
+      buskTalk = 40 + Math.random() * 30;
+      const lines = ["오늘 하루도 고생 많으셨어요", "강바람이 좋네요", "편하게 앉아서 들어요", "신청곡은 다음에 받을게요"];
+      say(busker.head, lines[Math.floor(Math.random() * lines.length)], false);
+    }
+    bkPool.material.opacity = 0.08 + (reduced ? 0 : Math.sin(clock * 1.7) * 0.02);
+  }
+
+  // the tip sheet
+  const buskSheet = document.getElementById("busk-sheet");
+  const buskSong = document.getElementById("busk-song");
+  function openBusk() {
+    closeExtraSheets();
+    sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true;
+    buskSong.textContent = "지금 연주 중 · 「" + songNow().title + "」";
+    buskSheet.hidden = false;
+    if (!audio) toast("소리를 켜면 연주가 들려요");
+  }
+  document.getElementById("busk-close").addEventListener("click", () => { buskSheet.hidden = true; });
+  buskSheet.addEventListener("submit", (e) => e.preventDefault());
+  function buskClap(fromRemote) {
+    if (audio && world === "river") audio.applause(fromRemote ? 0.35 : 0.55);
+    if (!fromRemote) { say(me.head, "짝짝짝", true); emit("busk", { k: "clap" }); }
+  }
+  function buskTip(fromRemote) {
+    addCoin(); buskBowAt = clock;
+    if (audio && world === "river") audio.clink(0.8);
+    if (!fromRemote) {
+      say(busker.head, "고마워요, 덕분에 힘이 나요", false);
+      emit("busk", { k: "tip" });
+      toast("500원을 기타 케이스에 넣었어요 (지금은 연습용이라 실제 결제는 되지 않아요)");
+    } else if (world === "river" && Math.hypot(player.x - BUSK.x, player.z - BUSK.z) < 14) toast("누군가 윤슬에게 500원을 건넸어요");
+  }
+  document.getElementById("busk-clap").addEventListener("click", () => buskClap(false));
+  document.getElementById("busk-tip").addEventListener("click", () => buskTip(false));
+
+  function closeExtraSheets() { boardSheet.hidden = true; buskSheet.hidden = true; }
+  function updateExtras(dt) {
+    updateBusk(dt);
+  }
+
   // ---------- choosing a place: the first screen, and any time later ----------
   const picker = document.getElementById("picker");
   const pickerSound = document.getElementById("picker-sound");
   try { if (localStorage.getItem("linger-sound") === "off") pickerSound.checked = false; } catch (e) {}
   function openPicker() {
     picker.hidden = false;
-    sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true;
+    sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true; closeExtraSheets();
     Object.keys(keys).forEach((k) => (keys[k] = false));
     updatePickerCounts(room ? room.peers() : []);
     const cur = picker.querySelector('.place[data-world="' + world + '"]');
@@ -4342,7 +4843,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
     document.body.classList.toggle("hud-off", off);
     hudToggle.setAttribute("aria-pressed", String(off));
     hudToggle.querySelector("span").textContent = off ? "메뉴 보이기" : "메뉴 숨기기";
-    if (off) { sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true; joy.x = joy.y = 0; }
+    if (off) { sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true; closeExtraSheets(); joy.x = joy.y = 0; }
   }
   hudToggle.addEventListener("click", () => setHud(!document.body.classList.contains("hud-off")));
   document.getElementById("btn-sit").addEventListener("click", () => setSeated(!player.seated));
@@ -4654,6 +5155,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
           c.connect(hp); hp.connect(cg); cg.connect(ctx.destination); c.start(tc, Math.random(), 0.06);
         }
       },
+      ac: ctx,
       world() { return curW; },
       setWorld(w) {
         curW = w;
@@ -4813,7 +5315,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
       const nx = player.x + (mx * cos + mz * sin) * spd * dt;
       const nz = player.z + (-mx * sin + mz * cos) * spd * dt;
       // slide along the cabin walls instead of walking through them
-      const okAt = (x, z) => world === "hanok" ? hanokOK(x, z) : world === "train" ? trainOK(x, z) : world === "sea" ? seaOK(x, z) : world === "cafe" ? cafeOK(x, z) : world === "river" ? riverOK(x, z) : world === "talk" ? talkOK(x, z) : world === "story" ? storyOK(x, z) : world === "nurse" ? nurseOK(x, z) : cabOK(x, z) && !blocked(x, z);
+      const okAt = (x, z) => boardBlocks(x, z) ? false : world === "hanok" ? hanokOK(x, z) : world === "train" ? trainOK(x, z) : world === "sea" ? seaOK(x, z) : world === "cafe" ? cafeOK(x, z) : world === "river" ? riverOK(x, z) : world === "talk" ? talkOK(x, z) : world === "story" ? storyOK(x, z) : world === "nurse" ? nurseOK(x, z) : cabOK(x, z) && !blocked(x, z);
       if (okAt(nx, nz)) { player.x = nx; player.z = nz; }
       else if (okAt(nx, player.z)) player.x = nx;
       else if (okAt(player.x, nz)) player.z = nz;
