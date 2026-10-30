@@ -35,6 +35,7 @@ body {
 }
 #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
 #scene:active { cursor: grabbing; }
+#scene.pixel { image-rendering: pixelated; image-rendering: crisp-edges; }
 
 .hud { position: fixed; z-index: 5; display: flex; gap: 8px; }
 .panel { background: var(--glass); border: 1px solid var(--line); border-radius: 16px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
@@ -252,7 +253,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
   .seg { padding: 3px; }
   .seg button { min-height: 34px; padding: 0 9px; }
   .chip { min-height: 40px; padding: 0 11px; }
-  #sound span, #hud-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #sound span, #hud-toggle span, #pix-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   body.hud-off #top-right { top: calc(12px + env(safe-area-inset-top, 0px)); }
   #focus, #tea-timer, #feed { top: calc(146px + env(safe-area-inset-top, 0px)); }
 }
@@ -351,6 +352,12 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
         <span class="place-name">한강</span>
         <span class="place-live" data-live="river"></span>
       </button>
+      <button type="button" class="place" data-world="alley">
+        <svg viewBox="0 0 160 90" aria-hidden="true" preserveAspectRatio="xMidYMid slice"><rect width="160" height="90" fill="#15111f"/><g fill="#f2e8d8"><circle cx="70" cy="8" r=".9"/><circle cx="92" cy="14" r=".8"/><circle cx="80" cy="20" r=".7"/></g><circle cx="96" cy="10" r="3.5" fill="#f3e6c8"/><path d="M0 0 H52 L64 62 H0Z" fill="#7a6a5e"/><path d="M160 0 H108 L96 62 H160Z" fill="#84705e"/><g fill="#ffc98a"><rect x="10" y="14" width="10" height="8"/><rect x="28" y="30" width="9" height="8"/><rect x="138" y="16" width="10" height="8"/><rect x="118" y="34" width="9" height="8"/></g><rect x="40" y="16" width="8" height="7" fill="#3a3440"/><path d="M52 62 L64 62 L96 62 L108 62 L160 90 H0Z" fill="#3a3536"/><path d="M34 36 Q80 50 126 36" stroke="#3a2e28" stroke-width=".6" fill="none"/><g fill="#ffd08a"><circle cx="44" cy="39" r="1.3"/><circle cx="58" cy="43" r="1.3"/><circle cx="72" cy="45" r="1.3"/><circle cx="88" cy="45" r="1.3"/><circle cx="102" cy="43" r="1.3"/><circle cx="116" cy="39" r="1.3"/></g><path d="M50 50 L110 50 L104 56 L56 56Z" fill="#d8742a"/><ellipse cx="68" cy="72" rx="10" ry="2.5" fill="#b8bcc0"/><ellipse cx="96" cy="76" rx="10" ry="2.5" fill="#b8bcc0"/><g fill="#c0392b"><rect x="54" y="74" width="5" height="6"/><rect x="104" y="78" width="5" height="6"/></g><g fill="#2e6da4"><rect x="78" y="74" width="5" height="6"/><rect x="86" y="78" width="5" height="6"/></g><rect x="20" y="40" width="1.5" height="30" fill="#2a2624"/><circle cx="24" cy="40" r="2" fill="#ffe0a8"/><ellipse cx="24" cy="72" rx="10" ry="3" fill="#ffc98a" opacity=".25"/></svg>
+        <span class="place-mood">집에 가기 싫은 밤</span>
+        <span class="place-name">골목 야장</span>
+        <span class="place-live" data-live="alley"></span>
+      </button>
       </div>
     </section>
     <section class="place-group" aria-labelledby="g-prog">
@@ -398,6 +405,10 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     <button type="button" data-time="dusk" aria-pressed="false">노을</button>
     <button type="button" data-time="night" aria-pressed="true">밤</button>
   </div>
+  <button type="button" class="chip" id="pix-toggle" aria-pressed="false">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg>
+    <span>도트 모드</span>
+  </button>
   <button type="button" class="chip" id="sound" aria-pressed="false">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9c1.5 1.5 1.5 4.5 0 6"/></svg>
     <span>바람 소리 켜기</span>
@@ -995,71 +1006,118 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     new THREE.Vector2(0.25, -0.16), new THREE.Vector2(0.23, -0.09), new THREE.Vector2(0.19, 0.0)
   ], 20);
 
+  // ---------- B. 동물 우주복: everyone wears a pastel animal onesie ----------
+  // cat, bear, rabbit or dog ears on the hood; soft cartoon shading with a thin outline
+  const TOON_GRAD = (() => {
+    const d = new Uint8Array([120, 120, 120, 255, 200, 200, 200, 255, 255, 255, 255, 255]);
+    const tx = new THREE.DataTexture(d, 3, 1, THREE.RGBAFormat);
+    tx.minFilter = tx.magFilter = THREE.NearestFilter; tx.generateMipmaps = false; tx.needsUpdate = true; return tx;
+  })();
+  const toonCache = {}, flatCache = {};
+  const toon = (c) => toonCache[c] || (toonCache[c] = new THREE.MeshToonMaterial({ color: c, gradientMap: TOON_GRAD, side: THREE.DoubleSide }));
+  const flat = (c) => flatCache[c] || (flatCache[c] = new THREE.MeshBasicMaterial({ color: c }));
+  const OUTLINE_M = new THREE.MeshBasicMaterial({ color: 0x4a3c36, side: THREE.BackSide });
+  const UNIT_SPH = new THREE.SphereGeometry(1, 24, 16);
+  function sph(r, m, x, y, z, sx, sy, sz) {
+    const b = new THREE.Mesh(UNIT_SPH, m);
+    b.position.set(x || 0, y || 0, z || 0);
+    b.scale.set(r * (sx || 1), r * (sy || 1), r * (sz || 1));
+    return b;
+  }
+  function sausage(a, b, r, m) {
+    const dir = new THREE.Vector3().subVectors(b, a); const len = dir.length();
+    const s = new THREE.Mesh(UNIT_SPH, m); s.scale.set(r, len / 2 + r * 0.6, r);
+    s.position.copy(a).addScaledVector(dir, 0.5); s.quaternion.setFromUnitVectors(UP, dir.normalize()); return s;
+  }
+  const noOL = (o) => { o.traverse((c) => (c.userData.noOL = true)); return o; };
+  function addOutline(group, t) {
+    const list = [];
+    group.traverse((o) => { if (o.isMesh && !o.userData.noOL) list.push(o); });
+    list.forEach((o) => {
+      if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+      const g = o.geometry.boundingSphere.radius, c = o.geometry.boundingSphere.center;
+      const kx = 1 + t / Math.max(o.scale.x * g, 0.02), ky = 1 + t / Math.max(o.scale.y * g, 0.02), kz = 1 + t / Math.max(o.scale.z * g, 0.02);
+      const ol = new THREE.Mesh(o.geometry, OUTLINE_M);
+      ol.scale.set(kx, ky, kz);
+      ol.position.set(c.x * (1 - kx), c.y * (1 - ky), c.z * (1 - kz));
+      ol.userData.noOL = true; o.add(ol);
+    });
+  }
+  const V2 = (x, y) => new THREE.Vector2(x, y);
+  const onesieBody = new THREE.LatheGeometry([V2(0, -0.02), V2(0.17, 0), V2(0.205, 0.1), V2(0.195, 0.24), V2(0.155, 0.33), V2(0.08, 0.39), V2(0, 0.405)], 32);
+  const onesieHem = new THREE.LatheGeometry([V2(0.245, -0.15), V2(0.24, -0.11), V2(0.225, -0.05), V2(0.195, 0)], 32);
+  const catEar = new THREE.ConeGeometry(0.085, 0.15, 16), catEarIn = new THREE.ConeGeometry(0.05, 0.09, 16);
+  const ANIMALS = ["cat", "bear", "rabbit", "dog"];
+  // soft, close-together tones so the people sit quietly in each place instead of popping out of it
+  const ONESIE = [0xd8cfc2, 0xcbbfae, 0xc4bcb2, 0xd2c6b6, 0xbdb5ab, 0xcfc7bd, 0xc9bba8, 0xbfb6aa];
+
   function makePerson(seed) {
-    const skin = mat(SKINS[seed % SKINS.length]);
-    const hair = mat(HAIRS[(seed * 7 + 3) % HAIRS.length]);
-    const style = STYLES[(seed * 5 + 1) % STYLES.length];
-    const robe = mat(ROBE);
+    const R = 0.3, headY = 0.635;
+    const skin = toon(SKINS[seed % SKINS.length]);
+    const robeC = ONESIE[(seed * 2 + 1) % ONESIE.length];
+    const robe = toon(robeC), dark = toon(new THREE.Color(robeC).multiplyScalar(0.86).getHex());
+    const inner = toon(0xe2cbc4), belly = toon(0xefe7dc);
+    const kind = ANIMALS[seed % ANIMALS.length];
 
     const root = new THREE.Group();
     const hip = new THREE.Group(); root.add(hip);
     const upper = new THREE.Group(); hip.add(upper);
     const lower = new THREE.Group(); hip.add(lower);
 
-    const torso = new THREE.Mesh(bodyGeo, robe);
+    const torso = new THREE.Mesh(onesieBody, robe);
     upper.add(torso);
-    // the shared clothes: a soft wrap top with a darker sash
-    const sash = new THREE.Mesh(new THREE.TorusGeometry(0.195, 0.022, 6, 24), mat(ROBE_DARK));
-    sash.rotation.x = Math.PI / 2;
-    sash.position.y = 0.13;
-    upper.add(sash);
-    const collar = limb(V(-0.09, 0.33, -0.12), V(0.06, 0.18, -0.19), 0.014, mat(ROBE_DARK));
-    upper.add(collar);
+    upper.add(noOL(sph(0.12, belly, 0, 0.15, -0.15, 1, 1.15, 0.45)));
 
-    // big round head
+    // big round head peeking out of the hood
     const head = new THREE.Group();
-    head.position.y = 0.62;
+    head.position.y = headY;
     upper.add(head);
-    head.add(ball(0.26, skin, 0, 0, 0, 1, 0.96, 0.96));
+    head.add(sph(R, skin, 0, 0, 0, 1, 0.95, 0.97));
+    const zf = (x, y) => -Math.sqrt(Math.max(0.0001, R * R - x * x - y * y));
     [-1, 1].forEach((s) => {
-      head.add(ball(0.032, mat(EYE), s * 0.088, 0.0, -0.236, 1, 1.25, 0.5));
-      head.add(ball(0.011, mat(WHITE), s * 0.088 + 0.01, 0.016, -0.25));
-      head.add(ball(0.045, mat(BLUSH), s * 0.155, -0.065, -0.2, 1, 0.6, 0.3));
-      head.add(ball(0.04, skin, s * 0.255, -0.01, 0, 0.5, 0.9, 0.8));
+      const ex = s * 0.1, ey = -0.005;
+      head.add(noOL(sph(0.046, flat(0x231a17), ex, ey, zf(ex, ey) + 0.014, 1, 1.32, 0.45)));
+      head.add(noOL(sph(0.017, flat(0xffffff), ex + s * 0.012 + 0.006, ey + 0.026, zf(ex, ey) - 0.012, 1, 1, 0.4)));
+      head.add(noOL(sph(0.008, flat(0xffffff), ex - 0.012, ey - 0.024, zf(ex, ey) - 0.01, 1, 1, 0.4)));
+      const cx = s * 0.175, cy = -0.075;
+      head.add(noOL(sph(0.052, toon(0xeab8ae), cx, cy, zf(cx, cy) + 0.016, 1, 0.58, 0.3)));
     });
-    head.add(ball(0.018, mat(0xd99a85), 0, -0.04, -0.252, 1.2, 0.8, 0.6));
-    const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.006, 4, 10, Math.PI), mat(0x8a4a3e));
-    mouth.position.set(0, -0.095, -0.24);
-    mouth.rotation.z = Math.PI;
-    head.add(mouth);
-    // hair
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.275, 20, 14, 0, Math.PI * 2, 0, Math.PI * (style === "bob" ? 0.62 : 0.5)), hair);
-    cap.rotation.x = 0.42;
-    cap.position.set(0, 0.012, 0.012);
-    head.add(cap);
-    head.add(ball(0.09, hair, -0.12, 0.17, -0.19, 1.3, 0.55, 0.6));
-    head.add(ball(0.08, hair, 0.1, 0.18, -0.2, 1.2, 0.5, 0.6));
-    if (style === "bun") head.add(ball(0.1, hair, 0, 0.26, 0.1));
-    if (style === "pigtails") { head.add(ball(0.085, hair, -0.26, 0.02, 0.06)); head.add(ball(0.085, hair, 0.26, 0.02, 0.06)); }
-    if (style === "bob") { head.add(ball(0.12, hair, -0.2, -0.06, 0.06, 0.7, 1.1, 1)); head.add(ball(0.12, hair, 0.2, -0.06, 0.06, 0.7, 1.1, 1)); }
+    const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0075, 6, 12, Math.PI), flat(0x7a3a32));
+    mouth.rotation.z = Math.PI; mouth.position.set(0, -0.085, zf(0, -0.085) - 0.004);
+    head.add(noOL(mouth));
+    head.add(sph(R * 1.1, robe, 0, 0.01, 0.065));   // the hood sits behind the face
+    [-1, 1].forEach((s) => {
+      if (kind === "cat") {
+        const e = new THREE.Mesh(catEar, robe); e.position.set(s * 0.17, 0.3, 0.06); e.rotation.z = -s * 0.35; head.add(e);
+        const ei = new THREE.Mesh(catEarIn, inner); ei.position.set(s * 0.165, 0.29, 0.0); ei.rotation.z = -s * 0.35; head.add(noOL(ei));
+      } else if (kind === "bear") {
+        head.add(sph(0.085, robe, s * 0.22, 0.24, 0.06));
+        head.add(noOL(sph(0.05, inner, s * 0.22, 0.24, -0.01, 1, 1, 0.4)));
+      } else if (kind === "rabbit") {
+        const e = sph(0.06, robe, s * 0.1, 0.44, 0.08, 1, 2.5, 0.65); e.rotation.z = -s * 0.15; head.add(e);
+        const ei = sph(0.032, inner, s * 0.1, 0.42, 0.04, 1, 3.2, 0.4); ei.rotation.z = -s * 0.15; head.add(noOL(ei));
+      } else {
+        const e = sph(0.075, dark, s * 0.31, 0.02, 0.06, 0.6, 1.7, 0.95); e.rotation.z = s * 0.3; head.add(e);
+      }
+    });
 
-    // seated arms: little hands resting in the lap
+    // seated arms: paws resting in the lap
     const sArms = new THREE.Group(); upper.add(sArms);
     [-1, 1].forEach((s) => {
-      sArms.add(limb(V(s * 0.17, 0.3, 0), V(s * 0.2, 0.12, -0.16), 0.055, robe));
-      sArms.add(ball(0.058, skin, s * 0.15, 0.1, -0.2));
+      sArms.add(sausage(V(s * 0.17, 0.3, -0.01), V(s * 0.17, 0.13, -0.17), 0.058, robe));
+      sArms.add(sph(0.06, robe, s * 0.14, 0.11, -0.21));
     });
-    // a swaddled baby held in the lap, shown only in the lullaby nook
+    // a swaddled baby held in the lap, shown only in the lullaby places
     const baby = new THREE.Group();
-    baby.position.set(0, 0.2, -0.2);
+    baby.position.set(0, 0.2, -0.22);
     baby.rotation.z = 0.25;
-    baby.add(ball(0.11, mat(0xf3e6d6), 0.02, 0, 0, 1.55, 0.85, 0.95));
-    baby.add(ball(0.072, mat(0xf8dcc6), -0.15, 0.05, -0.01));
-    baby.add(ball(0.076, mat(0xf4c7c3), -0.17, 0.08, 0.01, 1, 0.75, 1));
+    baby.add(sph(0.11, toon(0xf3e6d6), 0.02, 0, 0, 1.55, 0.85, 0.95));
+    baby.add(sph(0.072, toon(0xf8dcc6), -0.15, 0.05, -0.01));
+    baby.add(sph(0.076, toon(0xf4c7c3), -0.17, 0.08, 0.01, 1, 0.75, 1));
     [-1, 1].forEach((s) => {
-      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.004, 0.004), mat(EYE));
+      const lid = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.004, 0.004), flat(0x231a17));
       lid.position.set(-0.15 + s * 0.022, 0.05, -0.07);
-      baby.add(lid);
+      baby.add(noOL(lid));
     });
     baby.visible = false;
     upper.add(baby);
@@ -1067,37 +1125,40 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     // standing arms: short and swinging
     const stArms = [-1, 1].map((s) => {
       const pivot = new THREE.Group(); pivot.position.set(s * 0.19, 0.31, 0);
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.2, 10), robe); arm.position.y = -0.1;
+      pivot.add(sausage(V(0, 0, 0), V(0, -0.19, 0), 0.056, robe));
       const elbow = new THREE.Group(); elbow.position.y = -0.2;
-      const hand = ball(0.058, skin, 0, -0.04, 0);
-      elbow.add(hand); pivot.add(arm, elbow); upper.add(pivot);
-      pivot.rotation.z = s * 0.25;
+      elbow.add(sph(0.062, robe, 0, -0.03, 0));
+      pivot.add(elbow); upper.add(pivot);
+      pivot.rotation.z = s * 0.28;
       return { pivot, elbow };
     });
 
-    const skirt = new THREE.Mesh(hemGeo, robe);
+    const skirt = new THREE.Mesh(onesieHem, robe);
     lower.add(skirt);
-    // seated legs: stubby legs stretched out in front
+    lower.add(sph(0.07, robe, 0, 0.06, 0.2));       // tail
+    // seated legs: stubby legs with paw pads
     const sLegs = new THREE.Group(); lower.add(sLegs);
     [-1, 1].forEach((s) => {
-      sLegs.add(limb(V(s * 0.09, -0.02, -0.05), V(s * 0.12, -0.04, -0.26), 0.065, mat(ROBE_DARK)));
-      sLegs.add(ball(0.07, mat(SHOE), s * 0.12, -0.02, -0.31, 1, 0.8, 1.2));
+      sLegs.add(sausage(V(s * 0.09, -0.02, -0.05), V(s * 0.11, -0.03, -0.24), 0.066, robe));
+      sLegs.add(sph(0.075, robe, s * 0.115, -0.02, -0.3, 1, 0.82, 1.15));
+      sLegs.add(noOL(sph(0.035, inner, s * 0.115, -0.02, -0.36, 1, 1, 0.35)));
     });
     // standing legs
     const stLegs = [-1, 1].map((s) => {
       const pivot = new THREE.Group(); pivot.position.set(s * 0.085, 0, 0);
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.065, 0.24, 10), mat(ROBE_DARK)); leg.position.y = -0.12;
+      pivot.add(sausage(V(0, 0, 0), V(0, -0.2, 0), 0.064, robe));
       const knee = new THREE.Group(); knee.position.y = -0.24;
-      const shoe = ball(0.072, mat(SHOE), 0, -0.035, -0.03, 1, 0.75, 1.35);
-      knee.add(shoe); pivot.add(leg, knee); lower.add(pivot);
+      knee.add(sph(0.078, robe, 0, -0.03, -0.03, 1, 0.78, 1.3));
+      pivot.add(knee); lower.add(pivot);
       return { pivot, knee };
     });
 
+    addOutline(root, 0.008);
     const scale = 0.95 + ((seed * 13) % 10) / 90;
     root.scale.setScalar(scale);
 
     root.rotation.order = "YXZ";
-    const p = { root, hip, upper, lower, torso, head, skirt, sArms, sLegs, stArms, stLegs, baby, seated: true, walk: 0, amp: 0, nodAt: -1, phase: seed * 1.7 };
+    const p = { root, hip, upper, lower, torso, head, headY, skirt, sArms, sLegs, stArms, stLegs, baby, animal: kind, seated: true, walk: 0, amp: 0, nodAt: -1, phase: seed * 1.7 };
     p.setBaby = (on) => { baby.visible = on; };
     p.setSeated = (on) => {
       p.seated = on;
@@ -1115,7 +1176,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   function animatePerson(p, t, dt, moving) {
     const br = reduced ? 0 : Math.sin(t * 0.7 + p.phase) * 0.02;
     p.torso.scale.y = 1 + br;
-    p.head.position.y = 0.62 + br * 0.4;
+    p.head.position.y = (p.headY || 0.62) + br * 0.4;
     p.head.rotation.z = reduced ? 0 : Math.sin(t * 0.35 + p.phase) * 0.04;
     let bowA = 0;
     if (p.nodAt > 0) {
@@ -2681,9 +2742,9 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   // ---------- 5) 한강: 강가 계단, 다리 위 자동차, 넓게 펼쳐진 야경 ----------
   const sceneRiver = new THREE.Scene();
   sceneRiver.background = new THREE.Color(0x0b1222);
-  sceneRiver.fog = new THREE.Fog(0x141c30, 90, 420);
-  sceneRiver.add(new THREE.HemisphereLight(0x5a6888, 0x1a1a1e, 0.55));
-  const rvMoonLight = new THREE.DirectionalLight(0xaab8d8, 0.3);
+  sceneRiver.fog = new THREE.Fog(0x6a3f62, 80, 520);
+  sceneRiver.add(new THREE.HemisphereLight(0xc48a9a, 0x2a1e2a, 0.62));
+  const rvMoonLight = new THREE.DirectionalLight(0xffa07a, 0.38);
   rvMoonLight.position.set(-60, 80, -100);
   sceneRiver.add(rvMoonLight);
   const RV = { water: -2.3, prom: -1.6, bridgeX: -38, deckY: 5 };
@@ -2695,9 +2756,58 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     rsp.push(Math.cos(th) * Math.sin(ph) * 600, Math.cos(ph) * 600, Math.sin(th) * Math.sin(ph) * 600);
   }
   rsGeo.setAttribute("position", new THREE.Float32BufferAttribute(rsp, 3));
-  sceneRiver.add(new THREE.Points(rsGeo, new THREE.PointsMaterial({ color: 0xd8e0ea, size: 1.4, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.6 })));
+  sceneRiver.add(new THREE.Points(rsGeo, new THREE.PointsMaterial({ color: 0xffe8d8, size: 1.4, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.3 })));
   const rvMoon = new THREE.Mesh(new THREE.SphereGeometry(10, 20, 14), new THREE.MeshBasicMaterial({ color: 0xf1ead2, fog: false }));
   rvMoon.position.set(120, 110, -380);
+  // dusk over the city, like a pixel-art postcard: violet overhead, coral at the horizon,
+  // mountains fading into a pink haze behind the towers
+  rvMoon.visible = false;
+  {
+    const dome = new THREE.SphereGeometry(560, 32, 24);
+    const pos = dome.attributes.position, cols = [];
+    const stops = [[-0.05, new THREE.Color(0xf29a63)], [0.04, new THREE.Color(0xe0685a)], [0.12, new THREE.Color(0xb4485a)], [0.24, new THREE.Color(0x7a3558)], [0.42, new THREE.Color(0x4b2852)], [1.0, new THREE.Color(0x231a38)]];
+    const tmpC = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i) / 560, z = pos.getZ(i) / 560;
+      // a little warmer toward the setting sun behind the city (-z)
+      const h = y - Math.max(0, -z) * 0.04;
+      let k = 0; while (k < stops.length - 2 && h > stops[k + 1][0]) k++;
+      const a = stops[k], b = stops[k + 1];
+      tmpC.copy(a[1]).lerp(b[1], Math.min(1, Math.max(0, (h - a[0]) / (b[0] - a[0]))));
+      cols.push(tmpC.r, tmpC.g, tmpC.b);
+    }
+    dome.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
+    sceneRiver.add(new THREE.Mesh(dome, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })));
+    // the low sun, half hidden behind the far mountains
+    const sc = document.createElement("canvas"); sc.width = sc.height = 128;
+    const sg = sc.getContext("2d"), gr = sg.createRadialGradient(64, 64, 6, 64, 64, 64);
+    gr.addColorStop(0, "rgba(255,226,170,1)"); gr.addColorStop(0.18, "rgba(255,190,120,0.9)"); gr.addColorStop(0.5, "rgba(255,140,100,0.25)"); gr.addColorStop(1, "rgba(255,120,100,0)");
+    sg.fillStyle = gr; sg.fillRect(0, 0, 128, 128);
+    const sun = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
+    sun.position.set(-60, RV.water + 10, -520);
+    sceneRiver.add(sun);
+    // two ranges of mountains behind the city, the far one paler in the haze
+    [[0x5a3356, -470, 70, 0.9], [0x452a4c, -410, 52, 0.75]].forEach(([col, z, hmax, wk]) => {
+      const m = new THREE.MeshLambertMaterial({ color: col });
+      for (let x = -620; x <= 620; x += 46 + Math.random() * 30) {
+        const h = hmax * (0.55 + Math.random() * 0.45), r = h * (1.3 + Math.random() * 0.5) * wk;
+        const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), m);
+        c.position.set(x, RV.water + h / 2 - 2, z - Math.random() * 20);
+        c.rotation.y = Math.random() * 3;
+        sceneRiver.add(c);
+      }
+    });
+    // little lights of homes scattered up the near hills
+    const hl = [];
+    for (let i = 0; i < 260; i++) {
+      const x = -520 + Math.random() * 1040, z = -390 - Math.random() * 30, y = RV.water + 4 + Math.pow(Math.random(), 1.6) * 30;
+      hl.push(x, y, z);
+    }
+    const hlGeo = new THREE.BufferGeometry(); hlGeo.setAttribute("position", new THREE.Float32BufferAttribute(hl, 3));
+    sceneRiver.add(new THREE.Points(hlGeo, new THREE.PointsMaterial({ color: 0xffb46a, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.8 })));
+  }
+  // the city's walls take on the dusk tint; most windows warm
+  const riverBMats = buildingMats.map((m, i) => { const c = m.clone(); c.color.set(i < 3 ? 0xd2a0aa : 0x9a7aa6); return c; });
   sceneRiver.add(rvMoon);
 
   // our bank: lawn, four wide concrete steps, a promenade with a low rail
@@ -2747,7 +2857,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   const rwGeo = new THREE.PlaneGeometry(RW_W, RW_D, 128, 28);
   rwGeo.rotateX(-Math.PI / 2);
   rwGeo.translate(0, RV.water, -2.6 - RW_D / 2);
-  sceneRiver.add(new THREE.Mesh(rwGeo, new THREE.MeshPhongMaterial({ color: 0x142238, shininess: 90, specular: 0x5a6a88 })));
+  sceneRiver.add(new THREE.Mesh(rwGeo, new THREE.MeshPhongMaterial({ color: 0x2c2140, shininess: 90, specular: 0xb06a7a })));
   const rwBase = new Float32Array(rwGeo.attributes.position.count * 2);
   for (let i = 0; i < rwGeo.attributes.position.count; i++) { rwBase[i * 2] = rwGeo.attributes.position.getX(i); rwBase[i * 2 + 1] = rwGeo.attributes.position.getZ(i); }
   const FL_N = 360;
@@ -2779,9 +2889,9 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     for (let row = 0; row < 7; row++) {
       if (Math.random() < 0.3) continue;
       const near = row === 0;
-      const h = (near ? 10 : 14) + Math.random() * (row < 2 ? 34 : 70) * (Math.abs(gx) < 120 ? 1.2 : 0.8);
+      const h = ((near ? 10 : 14) + Math.random() * (row < 2 ? 34 : 70) * (Math.abs(gx) < 120 ? 1.2 : 0.8)) * 0.62;   // lower towers so the dusk sky and mountains show
       const w = 6 + Math.random() * 5;
-      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 8), buildingMats[Math.floor(Math.random() * buildingMats.length)]);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 8), riverBMats[Math.random() < 0.7 ? Math.floor(Math.random() * 3) : 3 + Math.floor(Math.random() * 3)]);
       b.position.set(gx + (Math.random() - 0.5) * 3, RV.water + 1.2 + h / 2, -142 - row * 14 - Math.random() * 5);
       sceneRiver.add(b);
       if (near && Math.random() < 0.55) {
@@ -2795,7 +2905,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     }
   }
   // a hill with a tower on top
-  const rvHill = new THREE.Mesh(new THREE.ConeGeometry(70, 46, 10), new THREE.MeshLambertMaterial({ color: 0x141a24 }));
+  const rvHill = new THREE.Mesh(new THREE.ConeGeometry(70, 46, 10), new THREE.MeshLambertMaterial({ color: 0x3e2a4a }));
   rvHill.position.set(80, RV.water + 18, -300);
   sceneRiver.add(rvHill);
   sbox(sceneRiver, 1.6, 26, 1.6, new THREE.MeshLambertMaterial({ color: 0xd8dade }), 80, RV.water + 52, -300);
@@ -3384,11 +3494,11 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   readerSeat.position.set(0, 0.05, -0.25);
   sceneStory.add(readerSeat, reader.root);
   [-1, 1].forEach((s) => {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.009, 6, 18), mat(0x3a2a20));
-    ring.position.set(s * 0.088, 0.0, -0.25);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.01, 6, 18), mat(0x3a2a20));
+    ring.position.set(s * 0.1, -0.005, -0.3);
     reader.head.add(ring);
   });
-  reader.head.add(ball(0.05, mat(0x6a5a4a), 0, -0.07, -0.245, 1.8, 0.55, 0.6));
+  reader.head.add(ball(0.05, mat(0x6a5a4a), 0, -0.13, -0.27, 1.8, 0.55, 0.6));
   const readerBook = new THREE.Group();
   readerBook.position.set(0, 0.2, -0.3);
   readerBook.rotation.x = -0.9;
@@ -3736,6 +3846,228 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     });
   }
 
+  // ---------- 9) 골목 야장: a narrow old-town alley at night, plastic tables under an
+  // orange tarp, benches, street lamps and windows lit like someone is home ----------
+  const sceneAlley = new THREE.Scene();
+  sceneAlley.background = new THREE.Color(0x15111f);
+  sceneAlley.fog = new THREE.Fog(0x2a1d28, 14, 70);
+  sceneAlley.add(new THREE.HemisphereLight(0x9a7a78, 0x1c1616, 0.5));
+  const AL = { z0: -17.5, z1: 13.5, hw: 2.9, pz0: -8, pz1: 2, pw: 5.2, wall: 3.4, pwall: 5.6 };
+  // ground: worn asphalt with a lighter cement strip and a manhole
+  sbox(sceneAlley, 16, 0.1, 40, new THREE.MeshLambertMaterial({ color: 0x3a3536 }), 0, -0.05, -2);
+  sbox(sceneAlley, 1.4, 0.02, 40, new THREE.MeshLambertMaterial({ color: 0x4a4444 }), 0, 0.005, -2);
+  const manhole = new THREE.Mesh(new THREE.CircleGeometry(0.42, 20), new THREE.MeshLambertMaterial({ color: 0x2a2626 }));
+  manhole.rotation.x = -Math.PI / 2; manhole.position.set(0.9, 0.012, 7.5); sceneAlley.add(manhole);
+
+  // houses along both sides: low two-storey fronts, every window a little different
+  const alWallCols = [0x8a7464, 0x7a6a62, 0x9a8670, 0x6e6058, 0x84705e, 0x766a64];
+  const alWin = [new THREE.MeshBasicMaterial({ color: 0xffc98a }), new THREE.MeshBasicMaterial({ color: 0xffb36a }), new THREE.MeshBasicMaterial({ color: 0xffe0b0 }), new THREE.MeshBasicMaterial({ color: 0x3a3440 })];
+  const alFrame = new THREE.MeshLambertMaterial({ color: 0x3a2e28 });
+  const alRoof = new THREE.MeshLambertMaterial({ color: 0x3e4a52 });
+  function alleyHouse(side, z0, z1, wallX, k) {
+    const w = z1 - z0, h = 4.2 + (k % 3) * 0.9, zc = (z0 + z1) / 2, x = side * (wallX + 1.5);
+    const m = new THREE.MeshLambertMaterial({ color: alWallCols[k % alWallCols.length] });
+    sbox(sceneAlley, 3, h, w, m, x, h / 2, zc);
+    // a little tiled eave
+    const eave = sbox(sceneAlley, 0.7, 0.12, w + 0.1, alRoof, side * (wallX - 0.2), h - 0.25, zc);
+    eave.rotation.z = side * 0.35;
+    // windows: lit or dark, with a frame
+    const face = side * (wallX - 0.01);
+    [1.45, 3.1].forEach((wy, row) => {
+      if (wy > h - 0.6) return;
+      for (let wz = z0 + 0.9; wz < z1 - 0.6; wz += 1.8) {
+        const lit = (k * 7 + row * 3 + Math.round(wz * 3)) % 5;
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.7), alWin[lit < 3 ? lit : 3]);
+        win.position.set(face, wy, wz);
+        win.rotation.y = -side * Math.PI / 2;
+        sceneAlley.add(win);
+        sbox(sceneAlley, 0.05, 0.08, 0.95, alFrame, face, wy - 0.38, wz);
+        sbox(sceneAlley, 0.05, 0.78, 0.06, alFrame, face, wy, wz);
+        if (row === 1 && lit === 0) sbox(sceneAlley, 0.25, 0.1, 0.9, new THREE.MeshLambertMaterial({ color: 0x5a7a4a }), side * (wallX - 0.12), wy - 0.42, wz);  // a window box of herbs
+      }
+    });
+    // a door with a warm light above it
+    if (k % 2 === 0) {
+      const dz = z0 + 0.6 + (w - 1.2) * 0.5;
+      const door = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.9), new THREE.MeshLambertMaterial({ color: [0x5a3a2a, 0x2e4a5a, 0x6a2a2a][k % 3] }));
+      door.position.set(face, 0.95, dz); door.rotation.y = -side * Math.PI / 2; sceneAlley.add(door);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), alWin[2]);
+      bulb.position.set(side * (wallX - 0.12), 2.15, dz); sceneAlley.add(bulb);
+    }
+    // an air conditioner box and a gas pipe, the usual old-town clutter
+    if (k % 3 === 1) sbox(sceneAlley, 0.35, 0.5, 0.7, new THREE.MeshLambertMaterial({ color: 0xb8b4ac }), side * (wallX - 0.2), 2.3, z0 + 0.6);
+    sbox(sceneAlley, 0.05, h - 0.4, 0.05, new THREE.MeshLambertMaterial({ color: 0xc8a040 }), side * (wallX - 0.05), (h - 0.4) / 2, z1 - 0.2);
+  }
+  let alK = 0;
+  [-1, 1].forEach((side) => {
+    [[AL.z0 - 1, -11], [-11, -8]].forEach(([a, b]) => alleyHouse(side, a, b, AL.wall, alK++));
+    alleyHouse(side, AL.pz0, AL.pz1, AL.pwall, alK++);
+    [[AL.pz1, 6.5], [6.5, 10.5], [10.5, AL.z1 + 2]].forEach(([a, b]) => alleyHouse(side, a, b, AL.wall, alK++));
+    // the short walls closing the corners of the little square
+    [AL.pz0, AL.pz1].forEach((z) => sbox(sceneAlley, AL.pwall - AL.wall, 4.2, 0.3, new THREE.MeshLambertMaterial({ color: 0x7a6a5e }), side * (AL.wall + AL.pwall) / 2, 2.1, z));
+  });
+  // the far end: steps going up, and apartment blocks on the hill under the stars
+  for (let i = 0; i < 6; i++) sbox(sceneAlley, 5.8, 0.18 * (i + 1), 0.45, new THREE.MeshLambertMaterial({ color: 0x5a5452 }), 0, 0.09 * (i + 1), AL.z0 - 0.3 - i * 0.45);
+  for (let i = 0; i < 9; i++) {
+    const bw = 5 + (i % 3) * 2, bh = 9 + (i * 37 % 11);
+    const blk = sbox(sceneAlley, bw, bh, 4, new THREE.MeshLambertMaterial({ color: 0x2a2434 }), -18 + i * 4.5, bh / 2 + 3, -34 - (i % 2) * 6);
+    for (let j = 0; j < 6; j++) {
+      const lw = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.4), alWin[(i + j) % 3]);
+      lw.position.set(blk.position.x - bw / 2 + 0.8 + (j * 1.3) % (bw - 1.2), 4 + ((i * 5 + j * 3) % Math.max(2, bh - 2)), blk.position.z + 2.01);
+      sceneAlley.add(lw);
+    }
+  }
+  const alStars = [];
+  for (let i = 0; i < 160; i++) alStars.push((Math.random() - 0.5) * 120, 22 + Math.random() * 40, -40 - Math.random() * 60);
+  const alStarGeo = new THREE.BufferGeometry(); alStarGeo.setAttribute("position", new THREE.Float32BufferAttribute(alStars, 3));
+  sceneAlley.add(new THREE.Points(alStarGeo, new THREE.PointsMaterial({ color: 0xf2e8d8, size: 1.3, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.7 })));
+  const alMoon = new THREE.Mesh(new THREE.SphereGeometry(2.4, 18, 12), new THREE.MeshBasicMaterial({ color: 0xf3e6c8, fog: false }));
+  alMoon.position.set(9, 30, -70); sceneAlley.add(alMoon);
+
+  // street lamps: warm heads on poles leaning out from the walls
+  const alLampHead = new THREE.MeshBasicMaterial({ color: 0xffe0a8 });
+  [[-1, 9.2], [1, 3.2], [-1, -10.2], [1, -14.5]].forEach(([side, z], i) => {
+    const px = side * (AL.wall - 0.15);
+    sbox(sceneAlley, 0.08, 3.6, 0.08, alFrame, px, 1.8, z);
+    sbox(sceneAlley, 0.7, 0.05, 0.05, alFrame, px - side * 0.35, 3.6, z);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.16, 12, 1, true), new THREE.MeshLambertMaterial({ color: 0x2a2624, side: THREE.DoubleSide }));
+    head.position.set(px - side * 0.7, 3.55, z); sceneAlley.add(head);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), alLampHead); b.position.set(px - side * 0.7, 3.47, z); sceneAlley.add(b);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.6, 24), new THREE.MeshBasicMaterial({ color: 0xffb870, transparent: true, opacity: 0.07, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pool.rotation.x = -Math.PI / 2; pool.position.set(px - side * 0.9, 0.02, z); sceneAlley.add(pool);
+    if (i < 3) { const l = new THREE.PointLight(0xffc483, 1.0, 9, 2); l.position.set(px - side * 0.7, 3.3, z); sceneAlley.add(l); }
+  });
+
+  // festoon lights strung back and forth across the little square
+  const alBulbs = [];
+  const bulbGeo = new THREE.SphereGeometry(0.05, 8, 6);
+  const bulbMats = [0xffd08a, 0xffb86a, 0xffe6b8].map((c) => new THREE.MeshBasicMaterial({ color: c }));
+  for (let s = 0; s < 5; s++) {
+    const za = AL.pz0 + 0.5 + s * 2.1, zb = za + 1.05;
+    for (let i = 0; i <= 14; i++) {
+      const t = i / 14, x = -AL.pwall + 0.2 + t * (AL.pwall * 2 - 0.4);
+      const z = za + (zb - za) * t, y = 3.5 - Math.sin(t * Math.PI) * 0.55;
+      const b = new THREE.Mesh(bulbGeo, bulbMats[(i + s) % 3]);
+      b.position.set(x, y, z); sceneAlley.add(b); alBulbs.push(b);
+      if (i > 0) { const prev = alBulbs[alBulbs.length - 2].position; const seg = sbox(sceneAlley, 0.012, 0.012, prev.distanceTo(b.position), alFrame, (prev.x + x) / 2, (prev.y + y) / 2 + 0.03, (prev.z + z) / 2); seg.lookAt(x, y + 0.03, z); }
+    }
+  }
+  const alWarm = new THREE.PointLight(0xffb36a, 1.2, 12, 2); alWarm.position.set(0, 3, -3); sceneAlley.add(alWarm);
+
+  // 야장: an orange tarp on poles, round metal tables, red and blue plastic stools
+  const tarp = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 6.2, 8, 6), new THREE.MeshLambertMaterial({ color: 0xd8742a, side: THREE.DoubleSide, transparent: true, opacity: 0.92 }));
+  { const tp = tarp.geometry.attributes.position; for (let i = 0; i < tp.count; i++) tp.setZ(i, -Math.cos(tp.getX(i) / 3.7 * Math.PI / 2) * 0.35); tarp.geometry.computeVertexNormals(); }
+  tarp.rotation.x = -Math.PI / 2; tarp.position.set(0.6, 3.95, -3.1); sceneAlley.add(tarp);
+  [[-3, -6], [4.2, -6], [-3, -0.1], [4.2, -0.1]].forEach(([x, z]) => sbox(sceneAlley, 0.06, 3.95, 0.06, new THREE.MeshLambertMaterial({ color: 0x8a8a90 }), x, 1.97, z));
+  const alTableTop = new THREE.MeshLambertMaterial({ color: 0xb8bcc0 }), tableLeg = new THREE.MeshLambertMaterial({ color: 0x7a7e84 });
+  const stoolCols = [0xc0392b, 0x2e6da4];
+  const ALLEY_TABLES = [[-1.6, -5.4], [1.9, -5.0], [-1.4, -1.6], [2.2, -1.2]];
+  ALLEY_TABLES.forEach(([tx, tz], ti) => {
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.04, 20), alTableTop); top.position.set(tx, 0.7, tz); sceneAlley.add(top);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.7, 10), tableLeg); leg.position.set(tx, 0.35, tz); sceneAlley.add(leg);
+    // a few things on the table: a green bottle, little glasses, a plate
+    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.24, 10), new THREE.MeshLambertMaterial({ color: 0x2f7a4a, transparent: true, opacity: 0.85 })); bottle.position.set(tx + 0.12, 0.84, tz - 0.05); sceneAlley.add(bottle);
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.03, 16), new THREE.MeshLambertMaterial({ color: 0xf2ece0 })); plate.position.set(tx - 0.12, 0.735, tz + 0.06); sceneAlley.add(plate);
+    const food = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: ti % 2 ? 0xc8642a : 0xe0b060 })); food.position.set(tx - 0.12, 0.75, tz + 0.06); food.scale.y = 0.5; sceneAlley.add(food);
+    [0, 1, 2, 3].forEach((k) => {
+      const a = k * Math.PI / 2 + 0.4 + ti * 0.3, sx = tx + Math.cos(a) * 0.78, sz = tz + Math.sin(a) * 0.78;
+      const stool = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.16, 0.42, 14), new THREE.MeshLambertMaterial({ color: stoolCols[(k + ti) % 2] }));
+      stool.position.set(sx, 0.21, sz); sceneAlley.add(stool);
+      const idx = addWorldSeat("alley", V(sx, 0.42, sz), Math.atan2(-(tx - sx), -(tz - sz)), "alley");
+      if ((k + ti) % 3 === 0) seatNPC(sceneAlley, "alley", idx, 700 + ti * 4 + k);
+    });
+  });
+  // the pojangmacha cart, steaming
+  const ALLEY_CART = { x: -4.3, z: -3 };
+  sbox(sceneAlley, 1.2, 0.9, 2.4, new THREE.MeshLambertMaterial({ color: 0x8a6a4a }), ALLEY_CART.x, 0.45, ALLEY_CART.z);
+  sbox(sceneAlley, 1.3, 0.06, 2.5, new THREE.MeshLambertMaterial({ color: 0xc8c8cc }), ALLEY_CART.x, 0.93, ALLEY_CART.z);
+  const alPot = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.14, 1.0), new THREE.MeshLambertMaterial({ color: 0x9a9aa0 })); alPot.position.set(ALLEY_CART.x + 0.05, 1.03, ALLEY_CART.z - 0.4); sceneAlley.add(alPot);
+  const broth = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9), new THREE.MeshLambertMaterial({ color: 0xc89a5a })); broth.rotation.x = -Math.PI / 2; broth.position.set(ALLEY_CART.x + 0.05, 1.1, ALLEY_CART.z - 0.4); sceneAlley.add(broth);
+  for (let i = 0; i < 6; i++) {
+    const skewer = sbox(sceneAlley, 0.015, 0.4, 0.015, new THREE.MeshLambertMaterial({ color: 0xd8c8a8 }), ALLEY_CART.x - 0.2 + (i % 3) * 0.2, 1.25, ALLEY_CART.z - 0.65 + Math.floor(i / 3) * 0.45);
+    skewer.rotation.z = 0.3;
+  }
+  // a hand-lettered sign
+  const alSignC = document.createElement("canvas"); alSignC.width = 256; alSignC.height = 96;
+  { const g = alSignC.getContext("2d"); g.fillStyle = "#f4e6c8"; g.fillRect(0, 0, 256, 96); g.fillStyle = "#b8321e"; g.font = "700 48px 'Noto Sans KR', sans-serif"; g.textAlign = "center"; g.fillText("골목 야장", 128, 64); }
+  const alSign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(alSignC) }));
+  alSign.position.set(ALLEY_CART.x + 0.66, 2.0, ALLEY_CART.z); alSign.rotation.y = Math.PI / 2; sceneAlley.add(alSign);
+  sbox(sceneAlley, 0.04, 1.2, 0.04, alFrame, ALLEY_CART.x + 0.62, 1.5, ALLEY_CART.z - 0.7);
+  sbox(sceneAlley, 0.04, 1.2, 0.04, alFrame, ALLEY_CART.x + 0.62, 1.5, ALLEY_CART.z + 0.7);
+  const cartOwner = makePerson(733);
+  cartOwner.setSeated(false);
+  cartOwner.root.position.set(ALLEY_CART.x - 0.85, 0, ALLEY_CART.z - 0.3);
+  cartOwner.root.rotation.y = -Math.PI / 2;
+  sceneAlley.add(cartOwner.root);
+  const alSteamMat = new THREE.MeshBasicMaterial({ color: 0xf2ece6, transparent: true, opacity: 0.18, depthWrite: false });
+  const alSteam = [];
+  for (let i = 0; i < 10; i++) {
+    const p = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), alSteamMat.clone());
+    p.userData.t = i / 10; alSteam.push(p); sceneAlley.add(p);
+  }
+
+  // benches under the lamps, to just sit for a while
+  const benchWood = new THREE.MeshLambertMaterial({ color: 0x8a5a3a });
+  [[-1, 8.2], [1, 4.4], [-1, -12.5]].forEach(([side, z], bi) => {
+    const bx = side * (AL.wall - 0.55);
+    sbox(sceneAlley, 0.42, 0.06, 1.6, benchWood, bx, 0.44, z);
+    sbox(sceneAlley, 0.06, 0.4, 1.6, benchWood, bx + side * 0.2, 0.68, z);
+    [-0.65, 0.65].forEach((dz) => sbox(sceneAlley, 0.36, 0.44, 0.06, alFrame, bx, 0.22, z + dz));
+    [-0.4, 0.4].forEach((dz, k) => {
+      const idx = addWorldSeat("alley", V(bx, 0.47, z + dz), side < 0 ? -Math.PI / 2 : Math.PI / 2, "bench");
+      if (bi === 1 && k === 0) seatNPC(sceneAlley, "alley", idx, 760);
+    });
+  });
+  // flower pots and a sleeping cat on a doorstep
+  [[-1, 5.6], [1, 9.6], [-1, 11.6], [1, -9.4], [-1, -15.6]].forEach(([side, z], i) => {
+    const px = side * (AL.wall - 0.3);
+    const potM = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.32, 10), new THREE.MeshLambertMaterial({ color: [0x8a4a32, 0x6a6a72, 0xa8784a][i % 3] }));
+    potM.position.set(px, 0.16, z); sceneAlley.add(potM);
+    const leaves = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: [0x3a6a3a, 0x4a7a3a, 0x5a7a4a][i % 3] }));
+    leaves.position.set(px, 0.5, z); leaves.scale.y = 0.8; sceneAlley.add(leaves);
+  });
+  const alCat = new THREE.Group();
+  const catBody = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 8), mat(0xe0a060)); catBody.scale.set(1.3, 0.62, 1); alCat.add(catBody);
+  const catHead = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), mat(0xe0a060)); catHead.position.set(0.2, 0.02, 0.04); alCat.add(catHead);
+  [-1, 1].forEach((s) => { const e = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.07, 6), mat(0xe0a060)); e.position.set(0.22, 0.11, 0.04 + s * 0.05); alCat.add(e); });
+  const catTail = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.025, 6, 12, Math.PI), mat(0xd09050)); catTail.rotation.x = Math.PI / 2; catTail.position.set(-0.05, -0.04, 0.05); alCat.add(catTail);
+  alCat.position.set(AL.wall - 0.4, 0.12, 6.9); alCat.rotation.y = Math.PI * 0.85; sceneAlley.add(alCat);
+  // laundry hanging between two windows
+  [[-AL.wall + 0.02, 10.2, AL.wall - 0.02, 11.4]].forEach(([xa, za, xb, zb]) => {
+    const line = sbox(sceneAlley, 0.01, 0.01, Math.hypot(xb - xa, zb - za), alFrame, (xa + xb) / 2, 3.3, (za + zb) / 2);
+    line.lookAt(xb, 3.3, zb);
+    [0xe8e0d0, 0x9ab0c8, 0xd8a8a0, 0xf0ead8].forEach((c, i) => {
+      const t = (i + 1) / 5, cl = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.55), new THREE.MeshLambertMaterial({ color: c, side: THREE.DoubleSide }));
+      cl.position.set(xa + (xb - xa) * t, 3.0, za + (zb - za) * t); cl.lookAt(cl.position.x + (zb - za), 3.0, cl.position.z - (xb - xa)); sceneAlley.add(cl);
+    });
+  });
+
+  function alleyGround() { return 0; }
+  function alleyOK(x, z) {
+    if (z < AL.z0 || z > AL.z1) return false;
+    const inSquare = z > AL.pz0 + 0.2 && z < AL.pz1 - 0.2;
+    if (Math.abs(x) > (inSquare ? AL.pw : AL.hw)) return false;
+    for (const [tx, tz] of ALLEY_TABLES) if (Math.hypot(x - tx, z - tz) < 0.62) return false;
+    if (Math.abs(x - ALLEY_CART.x) < 1.0 && Math.abs(z - ALLEY_CART.z) < 1.45) return false;
+    return true;
+  }
+  const nearCart = () => world === "alley" && Math.hypot(player.x - (ALLEY_CART.x + 0.6), player.z - ALLEY_CART.z) < 2.4;
+  function updateAlley(dt) {
+    if (!reduced) {
+      alBulbs.forEach((b, i) => { b.scale.setScalar(0.85 + 0.15 * Math.sin(clock * 2 + i * 1.7)); });
+      alSteam.forEach((p) => {
+        p.userData.t = (p.userData.t + dt * 0.35) % 1;
+        const t = p.userData.t;
+        p.position.set(ALLEY_CART.x + 0.05 + Math.sin(t * 6 + p.id) * 0.12, 1.15 + t * 1.3, ALLEY_CART.z - 0.4 + Math.cos(t * 5 + p.id) * 0.1);
+        p.scale.setScalar(0.6 + t * 1.6);
+        p.material.opacity = 0.2 * (1 - t);
+      });
+      catBody.scale.y = 0.62 + Math.sin(clock * 1.4) * 0.03;
+      cartOwner.head.rotation.z = Math.sin(clock * 0.6) * 0.06;
+    }
+    animatePerson(cartOwner, clock, dt, false);
+  }
+
   // ---------- player ----------
   const player = { x: 0, z: 9, yaw: 0, pitch: -0.12, seated: false, seat: null };
   const me = makePerson(7);
@@ -3751,7 +4083,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   const keys = {};
   const joy = { x: 0, y: 0, id: null };
   let world = "mountain", activeScene = scene;
-  const WORLD_ORDER = ["mountain", "hanok", "train", "sea", "cafe", "river", "talk", "story", "nurse"];
+  const WORLD_ORDER = ["mountain", "hanok", "train", "sea", "cafe", "river", "alley", "talk", "story", "nurse"];
   function groundY(x, z) {
     if (world === "hanok") return hanokGround(x, z);
     if (world === "train") return trainGround(x, z);
@@ -3761,6 +4093,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     if (world === "talk") return talkGround(x, z);
     if (world === "story") return storyGround(x, z);
     if (world === "nurse") return nurseGround(x, z);
+    if (world === "alley") return alleyGround(x, z);
     return mountainGround(x, z);
   }
   function mountainGround(x, z) {
@@ -3811,7 +4144,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       const p = makePerson(seedCounter++);
       p.setSeated(false);
       const dot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), dotMat);
-      dot.position.y = 1.0;
+      dot.position.y = 1.35;
       p.upper.add(dot);
       p.root.visible = false;
       activeScene.add(p.root);
@@ -3998,6 +4331,8 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       else if (seatKind[best] === "lounge") toast("라운지 소파에 앉았어요. 말하기로 옆 사람과 이야기해보세요");
       else if (seatKind[best] === "study") toast("책상 스탠드를 켰어요. 다들 조용히 각자 할 일을 하고 있어요");
       else if (seatKind[best] === "cat") toast("툇마루에 앉았어요. 고양이가 슬금슬금 다가와요");
+      else if (seatKind[best] === "alley") toast("야장 의자에 앉았어요. 말하기로 옆자리와 이야기해도 좋아요");
+      else if (seatKind[best] === "bench") toast("가로등 아래 벤치에 앉았어요. 골목 창문들이 따뜻하게 켜져 있어요");
       else if (seatKind[best] === "lull") toast("아기를 안고 흔들의자에 앉았어요. 쉬~ 쉬~");
       else if (seatKind[best] === "fire") toast("모닥불 곁에 앉았어요. 불이 작아지면 장작을 넣어주세요");
       else toast("빈자리에 앉았어요. 천천히 숨을 쉬어보세요");
@@ -4165,6 +4500,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     bfire: ["장작 넣기", "바닷가 모닥불"],
     fw: ["폭죽 터뜨리기", "밤바다"],
     board: ["쪽지 게시판", "읽기 · 붙이기"],
+    odeng: ["어묵 한 꼬치", "포장마차"],
     busk: ["버스킹 응원", "박수 · 500원"]
   };
   function rockAt(i) { return reduced ? 0 : Math.sin(clock * 1.3 + i) * 0.07; }
@@ -4178,6 +4514,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     else if (world === "story") mode = player.seated && isFutonSeat(player.seat) ? (myLie ? "situp" : "lie") : null;
     else if (world === "talk") mode = player.seated && seatKind[player.seat] === "talk" ? "clap" : null;
     else if (world === "river") mode = player.seated && isRiverSeat(player.seat) ? "barmenu" : "chat";
+    else if (world === "alley") mode = nearCart() ? "odeng" : "chat";
     else if (world === "sea") mode = Math.hypot(player.x - BF.x, player.z - BF.z) < 3.6 ? "bfire" : "fw";
     else if (!player.seated || seatKind[player.seat] === "fire" || seatKind[player.seat] === "cat") {
       const df = Math.hypot(player.x - FIRE.x, player.z - FIRE.z);
@@ -4212,6 +4549,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     }
     else if (ctxMode === "cat") { const i = nearestCat(); if (i >= 0) petCat(i, false); }
     else if (ctxMode === "board") { ctxCool = clock + 0.2; openBoard(); }
+    else if (ctxMode === "odeng") { ctxCool = clock + 2; say(cartOwner.head, "국물 많이 드릴게요. 천천히 드세요", false); toast("따끈한 어묵 한 꼬치와 국물 한 컵을 받았어요"); }
     else if (ctxMode === "busk") { ctxCool = clock + 0.2; openBusk(); }
   });
   function updatePlaces(dt) {
@@ -4315,7 +4653,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   });
 
   // ---------- switching backgrounds ----------
-  const SCENES = { mountain: scene, hanok: sceneHanok, train: sceneTrain, sea: sceneSea, cafe: sceneCafe, river: sceneRiver, talk: sceneTalk, story: sceneStory, nurse: sceneNurse };
+  const SCENES = { mountain: scene, hanok: sceneHanok, train: sceneTrain, sea: sceneSea, cafe: sceneCafe, river: sceneRiver, talk: sceneTalk, story: sceneStory, nurse: sceneNurse, alley: sceneAlley };
   const WORLD_INFO = {
     mountain: { spawn: [0, 9, 0], toast: "산마루로 돌아왔어요" },
     hanok: { spawn: [0, 4.5, 0], label: "한옥 마당", toast: "별이 뜬 한옥 마당이에요. 대청마루에 올라 앉아보세요" },
@@ -4325,7 +4663,8 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     river: { spawn: [0, 9, 0], label: "한강" },
     talk: { spawn: [0, 7.6, 0], label: "북토크" },
     story: { spawn: [0, 5.2, 0], label: "책 읽어주는 아저씨" },
-    nurse: { spawn: [0, 3.9, 0], label: "밤중수유" }
+    nurse: { spawn: [0, 3.9, 0], label: "밤중수유" },
+    alley: { spawn: [0, 11.5, 0], label: "골목 야장" }
   };
   function setWorld(w) {
     if (w === world || !SCENES[w]) return;
@@ -4366,12 +4705,27 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     sea: { x: -5.2, z: 8.2, look: [0, 6], wall: false, scene: () => sceneSea, ground: () => 0 },
     cafe: { x: 1.9, z: -11.86, look: [1.9, 0], wall: true, scene: () => sceneCafe, ground: () => 0 },
     river: { x: 4.6, z: 10.8, look: [0, 9], wall: false, scene: () => sceneRiver, ground: () => 0 },
-    nurse: { x: -3.6, z: 4.88, look: [-3.6, 0], wall: true, scene: () => sceneNurse, ground: () => 0 }
+    nurse: { x: -3.6, z: 4.88, look: [-3.6, 0], wall: true, scene: () => sceneNurse, ground: () => 0 },
+    alley: { x: -3.33, z: 6.0, look: [0, 6.0], wall: true, scene: () => sceneAlley, ground: () => 0 }
   };
-  const WORLD_NAME = { mountain: "산마루", hanok: "한옥 마당", train: "밤기차", sea: "밤바다", cafe: "스터디카페", river: "한강", nurse: "밤중수유" };
+  const WORLD_NAME = { mountain: "산마루", hanok: "한옥 마당", train: "밤기차", sea: "밤바다", cafe: "스터디카페", river: "한강", nurse: "밤중수유", alley: "골목 야장" };
   const boards = {};
   const corkMat = new THREE.MeshLambertMaterial({ color: 0xb98a5a });
   const frameMat = new THREE.MeshLambertMaterial({ color: 0x5a3e2a });
+  const lampIron = new THREE.MeshLambertMaterial({ color: 0x23262b, side: THREE.DoubleSide });
+  const lampBrass = new THREE.MeshLambertMaterial({ color: 0x8a6a3a });
+  const lampBulb = new THREE.MeshBasicMaterial({ color: 0xffe2b0 });
+  const lampMoth = new THREE.MeshBasicMaterial({ color: 0xfff0d0 });
+  const lampBeamMat = new THREE.MeshBasicMaterial({ color: 0xffd39a, transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  const lampPoolMat = new THREE.MeshBasicMaterial({ color: 0xffc98a, transparent: true, opacity: 0.13, depthWrite: false });
+  const boardMoths = [];
+  const wallHaloMat = (() => {
+    const c = document.createElement("canvas"); c.width = c.height = 128;
+    const x = c.getContext("2d"), gr = x.createRadialGradient(64, 46, 4, 64, 64, 64);
+    gr.addColorStop(0, "rgba(255,200,140,0.55)"); gr.addColorStop(0.5, "rgba(255,180,110,0.18)"); gr.addColorStop(1, "rgba(255,170,100,0)");
+    x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+    return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  })();
   Object.keys(BOARD_SPOTS).forEach((w) => {
     const s = BOARD_SPOTS[w];
     const g = new THREE.Group();
@@ -4394,14 +4748,44 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       roofB.position.set(0, base + H + 0.1, 0.05);
       g.add(roofB);
     }
-    // a small lamp so the board reads at night
-    const glow = new THREE.PointLight(0xffd9a0, 0.55, 3.2, 2);
-    glow.position.set(0, base + H + 0.25, 0.6);
-    g.add(glow);
+    // a warm lamp beside the board: a little street lamp outside, a picture light on walls
+    let light, bulb, beam;
+    if (!s.wall) {
+      const px = W / 2 + 0.38, top = 2.25;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.04, top, 10), lampIron); post.position.set(px, top / 2, 0.12); g.add(post);
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.08, 12), lampIron); foot.position.set(px, 0.04, 0.12); g.add(foot);
+      const arm = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.016, 6, 18, Math.PI / 2), lampIron);
+      arm.position.set(px - 0.3, top, 0.12); g.add(arm);
+      const reach = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.16, 6), lampIron);
+      reach.rotation.z = Math.PI / 2; reach.position.set(px - 0.38, top + 0.3, 0.12); g.add(reach);
+      const hx = px - 0.45, hy = top + 0.3 - 0.08;
+      const hood = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.13, 14, 1, true), lampIron); hood.position.set(hx, hy, 0.12); g.add(hood);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), lampIron); cap.position.set(hx, hy + 0.08, 0.12); g.add(cap);
+      bulb = new THREE.Mesh(new THREE.SphereGeometry(0.055, 14, 10), lampBulb); bulb.position.set(hx, hy - 0.06, 0.12); g.add(bulb);
+      beam = new THREE.Mesh(new THREE.ConeGeometry(0.75, hy - 0.1, 24, 1, true), lampBeamMat.clone());
+      beam.position.set(hx, (hy - 0.1) / 2, 0.22); g.add(beam);
+      const pool2 = new THREE.Mesh(new THREE.CircleGeometry(1.05, 32), lampPoolMat); pool2.rotation.x = -Math.PI / 2; pool2.position.set(hx * 0.6, 0.015, 0.45); g.add(pool2);
+      light = new THREE.PointLight(0xffc98a, 1.1, 5.5, 2); light.position.set(hx, hy - 0.15, 0.4); g.add(light);
+      // two small moths that keep circling the lamp
+      for (let m = 0; m < 2; m++) {
+        const moth = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 4), lampMoth);
+        moth.userData = { cx: hx, cy: hy - 0.05, cz: 0.12, r: 0.16 + m * 0.07, sp: 2.2 + m * 1.3, ph: m * 2.1 };
+        g.add(moth); boardMoths.push(moth);
+      }
+    } else {
+      // a brass picture light over the board
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, W * 0.7, 12), lampBrass); bar.rotation.z = Math.PI / 2; bar.position.set(0, base + H + 0.16, 0.2); g.add(bar);
+      [-1, 1].forEach((k) => { const st = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.2), lampBrass); st.position.set(k * W * 0.22, base + H + 0.12, 0.1); g.add(st); });
+      bulb = new THREE.Mesh(new THREE.BoxGeometry(W * 0.62, 0.02, 0.03), lampBulb); bulb.position.set(0, base + H + 0.13, 0.21); g.add(bulb);
+      beam = new THREE.Mesh(new THREE.PlaneGeometry(W * 1.05, H + 0.1), lampBeamMat.clone()); beam.position.set(0, base + H / 2 + 0.05, 0.06); g.add(beam);
+      light = new THREE.PointLight(0xffc98a, 1.05, 4, 2); light.position.set(0, base + H + 0.05, 0.5); g.add(light);
+      // warm spill on the wall around the board
+      const halo = new THREE.Mesh(new THREE.PlaneGeometry(W * 2.6, H * 2.6), wallHaloMat); halo.position.set(0, base + H * 0.62, -0.05); g.add(halo);
+    }
     g.position.set(s.x, s.ground(), s.z);
     g.rotation.y = Math.atan2(s.look[0] - s.x, s.look[1] - s.z);
     s.scene().add(g);
-    boards[w] = { g, cv, tex, s };
+    boards[w] = { g, cv, tex, s, light, beam, base: light.intensity };
   });
   function nearBoard(x, z, r) {
     const b = boards[world];
@@ -4464,6 +4848,10 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       wrapLines(ctx, n.text, cw - 36, 3).forEach((l, k) => ctx.fillText(l, -2, -ch / 2 + 40 + k * 24));
       ctx.restore();
     });
+    // the lamp's warm light falling on the cork from above
+    const gl = ctx.createRadialGradient(W * 0.62, -H * 0.15, 10, W * 0.55, H * 0.2, H * 1.25);
+    gl.addColorStop(0, "rgba(255,214,160,0.38)"); gl.addColorStop(0.55, "rgba(255,190,120,0.1)"); gl.addColorStop(1, "rgba(20,10,0,0.28)");
+    ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
     b.tex.needsUpdate = true;
   }
   function drawAllBoards() { Object.keys(boards).forEach(drawNoteBoard); }
@@ -4772,6 +5160,16 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   function closeExtraSheets() { boardSheet.hidden = true; buskSheet.hidden = true; }
   function updateExtras(dt) {
     updateBusk(dt);
+    const b = boards[world];
+    if (b) {
+      const k = reduced ? 1 : 1 + Math.sin(clock * 1.3) * 0.05 + Math.sin(clock * 7.1) * 0.015;
+      b.light.intensity = b.base * k;
+      b.beam.material.opacity = 0.07 * k;
+    }
+    if (!reduced) boardMoths.forEach((m) => {
+      const u = m.userData, a = clock * u.sp + u.ph;
+      m.position.set(u.cx + Math.cos(a) * u.r, u.cy + Math.sin(a * 1.7) * 0.06, u.cz + Math.sin(a) * u.r);
+    });
   }
 
   // ---------- choosing a place: the first screen, and any time later ----------
@@ -4787,7 +5185,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     setTimeout(() => (cur || picker.querySelector(".place")).focus(), 30);
   }
   function updatePickerCounts(peers) {
-    const n = { mountain: 0, hanok: 0, train: 0, sea: 0, cafe: 0, river: 0, talk: 0, story: 0, nurse: 0 };
+    const n = { mountain: 0, hanok: 0, train: 0, sea: 0, cafe: 0, river: 0, alley: 0, talk: 0, story: 0, nurse: 0 };
     (peers || []).forEach((p) => {
       if (p.kind !== "viewer" || p.sameTab) return;
       const w = p.presence && p.presence.world;
@@ -4805,6 +5203,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     mountain: [420, (h) => 0.6 + 0.25 * band(h, 19, 24)],
     hanok: [260, (h) => 0.55 + 0.35 * band(h, 21, 26)],
     nurse: [180, (h) => 0.2 + 0.8 * band(h, 21, 29)],
+    alley: [390, (h) => 0.25 + 0.75 * band(h, 19, 25)],
     train: [340, (h) => 0.35 + 0.65 * band(h, 22, 27)],
     sea: [520, (h) => 0.4 + 0.6 * band(h, 21, 27)],
     cafe: [610, (h) => 0.25 + 0.75 * band(h, 9, 23)],
@@ -5160,7 +5559,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       setWorld(w) {
         curW = w;
         const t = ctx.currentTime;
-        const windBase = w === "mountain" ? 0.35 : w === "hanok" ? 0.12 : w === "sea" ? 0.08 : w === "river" ? 0.1 : 0;
+        const windBase = w === "mountain" ? 0.35 : w === "hanok" ? 0.12 : w === "sea" ? 0.08 : w === "river" ? 0.1 : w === "alley" ? 0.05 : 0;
         gain.gain.setTargetAtTime(windBase, t, 0.5);
         lfoGain.gain.setTargetAtTime(windBase * 0.5, t, 0.5);
         hrVol.gain.setTargetAtTime(w === "cafe" ? 0.14 : 0, t, 0.6);
@@ -5275,14 +5674,71 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   });
   window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
 
+  // ---------- 도트 모드: the same 3D world drawn at a low resolution, with a
+  // limited palette and ordered dithering, then scaled up with crisp pixels ----------
+  const PIX = { on: false, size: 4 };
+  let pixRT = null;
+  const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const pixMat = new THREE.ShaderMaterial({
+    uniforms: { tex: { value: null }, levels: { value: 12.0 } },
+    vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+    fragmentShader: [
+      "uniform sampler2D tex; uniform float levels; varying vec2 vUv;",
+      "float bayer2(vec2 a) { a = floor(a); return fract(dot(a, vec2(0.5, a.y * 0.75))); }",
+      "float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }",
+      "void main() {",
+      "  vec3 c = texture2D(tex, vUv).rgb;",
+      "  float l = dot(c, vec3(0.299, 0.587, 0.114));",
+      "  c = mix(vec3(l), c, 1.15);",                       // a touch more colour, like hand-picked pixel palettes
+      "  c = sqrt(max(c, 0.0));",                            // quantize in a perceptual space so dark night scenes keep their detail
+      "  float d = bayer4(gl_FragCoord.xy) - 0.5;",
+      "  c = floor(c * levels + 0.5 + d * 0.35) / levels;",
+      "  c = c * c;",
+      "  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);",
+      "}"
+    ].join("\n"),
+    depthTest: false, depthWrite: false
+  });
+  pixScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), pixMat));
+  function pixSize() { return Math.max(3, Math.round(Math.min(window.innerWidth, window.innerHeight) / 190)); }
+  const pixBtn = document.getElementById("pix-toggle");
+  function setPixel(on) {
+    PIX.on = on;
+    pixBtn.setAttribute("aria-pressed", String(on));
+    pixBtn.querySelector("span").textContent = on ? "도트 끄기" : "도트 모드";
+    canvas.classList.toggle("pixel", on);
+    try { localStorage.setItem("stay-pixel", on ? "on" : "off"); } catch (e) {}
+    resize();
+  }
+  pixBtn.addEventListener("click", () => setPixel(!PIX.on));
+  function renderFrame() {
+    if (!PIX.on || !pixRT) { renderer.render(activeScene, camera); return; }
+    renderer.setRenderTarget(pixRT);
+    renderer.render(activeScene, camera);
+    renderer.setRenderTarget(null);
+    pixMat.uniforms.tex.value = pixRT.texture;
+    renderer.render(pixScene, pixCam);
+  }
+
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
-    renderer.setSize(w, h, false);
+    if (PIX.on) {
+      PIX.size = pixSize();
+      const pw = Math.max(1, Math.round(w / PIX.size)), ph = Math.max(1, Math.round(h / PIX.size));
+      renderer.setPixelRatio(1);
+      renderer.setSize(pw, ph, false);
+      if (!pixRT) pixRT = new THREE.WebGLRenderTarget(pw, ph, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+      else pixRT.setSize(pw, ph);
+    } else {
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(w, h, false);
+    }
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
   window.addEventListener("resize", resize);
   resize();
+  try { if (localStorage.getItem("stay-pixel") === "on") setPixel(true); } catch (e) {}
 
   let count = 1284;
   const countEl = document.getElementById("count");
@@ -5315,7 +5771,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       const nx = player.x + (mx * cos + mz * sin) * spd * dt;
       const nz = player.z + (-mx * sin + mz * cos) * spd * dt;
       // slide along the cabin walls instead of walking through them
-      const okAt = (x, z) => boardBlocks(x, z) ? false : world === "hanok" ? hanokOK(x, z) : world === "train" ? trainOK(x, z) : world === "sea" ? seaOK(x, z) : world === "cafe" ? cafeOK(x, z) : world === "river" ? riverOK(x, z) : world === "talk" ? talkOK(x, z) : world === "story" ? storyOK(x, z) : world === "nurse" ? nurseOK(x, z) : cabOK(x, z) && !blocked(x, z);
+      const okAt = (x, z) => boardBlocks(x, z) ? false : world === "hanok" ? hanokOK(x, z) : world === "train" ? trainOK(x, z) : world === "sea" ? seaOK(x, z) : world === "cafe" ? cafeOK(x, z) : world === "river" ? riverOK(x, z) : world === "talk" ? talkOK(x, z) : world === "story" ? storyOK(x, z) : world === "nurse" ? nurseOK(x, z) : world === "alley" ? alleyOK(x, z) : cabOK(x, z) && !blocked(x, z);
       if (okAt(nx, nz)) { player.x = nx; player.z = nz; }
       else if (okAt(nx, player.z)) player.x = nx;
       else if (okAt(player.x, nz)) player.z = nz;
@@ -5364,6 +5820,11 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       cx = Math.max(-TK.hw + 0.3, Math.min(TK.hw - 0.3, cx));
       cz = Math.max(TK.z0 + 0.3, Math.min(TK.z1 - 0.3, cz));
       cy = Math.min(cy, TK.h - 0.2);
+    }
+    if (world === "alley") {
+      const wide = cz > AL.pz0 && cz < AL.pz1;
+      cx = Math.max(-(wide ? AL.pwall : AL.wall) + 0.3, Math.min((wide ? AL.pwall : AL.wall) - 0.3, cx));
+      cy = Math.min(cy, 3.3);
     }
     if (world === "cafe") {
       cx = Math.max(-CF.hw + 0.25, Math.min(CF.hw - 0.25, cx));
@@ -5503,9 +5964,10 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     else if (viewWorld === "talk") updateTalk(dt);
     else if (viewWorld === "story") updateStory(dt);
     else if (viewWorld === "nurse") updateNurse(dt);
+    else if (viewWorld === "alley") updateAlley(dt);
     updateFeedPanel(dt);
     updateBubbles();
-    if (!previewing) renderer.render(activeScene, camera);
+    if (!previewing) renderFrame();
     requestAnimationFrame(frame);
   }
   for (let i = 0; i < 6; i++) {
