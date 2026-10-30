@@ -295,6 +295,28 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
 #busk-sheet .row .btn { flex: 1; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; }
+/* rituals: worry burning, five minutes, paper boats */
+#worry-sheet, #five-sheet {
+  left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: min(400px, calc(100vw - 32px)); flex-direction: column; gap: 10px; padding: 16px; z-index: 9;
+}
+#worry-sheet h2, #five-sheet h2 { margin: 0; font: 600 18px var(--display); }
+#worry-sheet p, #five-sheet p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+#worry-sheet input, #five-sheet input { width: 100%; box-sizing: border-box; min-height: 46px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,0.25); color: var(--paper); font: 15px var(--body); padding: 0 12px; -webkit-user-select: text; user-select: text; }
+#worry-sheet .row, #five-sheet .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+#worry-sheet .btn, #five-sheet .btn { min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid var(--line); background: transparent; color: var(--paper); font: 500 14px var(--body); cursor: pointer; }
+#worry-sheet .btn.primary, #five-sheet .btn.primary { background: var(--lamp); border-color: var(--lamp); color: var(--ink); font-weight: 700; }
+#five-sheet > div { display: flex; flex-direction: column; gap: 10px; }
+#five-count { color: var(--lamp) !important; font-size: 12.5px !important; }
+#five-done-msg { color: var(--paper) !important; font-size: 15px !important; }
+.ember { position: fixed; z-index: 6; pointer-events: none; transform: translate(-50%, -50%); font: 600 20px var(--display); color: #fff3d6; text-shadow: 0 0 6px #ff9a4a, 0 0 14px #ff6a2a; opacity: 0; white-space: nowrap; }
+#five { left: 50%; transform: translateX(-50%); top: calc(12px + env(safe-area-inset-top, 0px)); padding: 8px 16px; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+#five strong { font: 600 24px var(--display); font-variant-numeric: tabular-nums; color: #f3d9a8; }
+#five span { font-size: 12px; color: var(--muted); max-width: 70vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#five button { margin-top: 4px; min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--line); background: transparent; color: var(--muted); font: 500 12px var(--body); cursor: pointer; }
+body.five-on #focus { display: none !important; }
+@media (max-width: 640px) { #five { top: calc(146px + env(safe-area-inset-top, 0px)); } }
+body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { display: none !important; }
 </style>
 
 <canvas id="scene" aria-label="사람들이 함께 머무는 3D 쉼터"></canvas>
@@ -459,12 +481,12 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
 </div>
 
 <form class="hud panel" id="sheet" hidden>
-  <h2>풍등 띄우기</h2>
-  <label for="wish-input">오늘 내려놓고 싶은 마음 한 줄 (40자)</label>
+  <h2 id="wish-title">풍등 띄우기</h2>
+  <label for="wish-input" id="wish-label">오늘 내려놓고 싶은 마음 한 줄 (40자)</label>
   <input id="wish-input" maxlength="40" placeholder="예) 오늘 하루도 잘 버텼다" autocomplete="off">
   <div class="row">
     <button type="button" class="btn" id="sheet-cancel">닫기</button>
-    <button type="submit" class="btn primary">하늘로 띄우기</button>
+    <button type="submit" class="btn primary" id="wish-go">하늘로 띄우기</button>
   </div>
 </form>
 
@@ -519,6 +541,47 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     <button type="button" class="btn primary" id="busk-tip">500원 응원하기</button>
   </div>
 </form>
+
+
+<form class="hud panel" id="worry-sheet" hidden aria-labelledby="worry-title">
+  <h2 id="worry-title">걱정 태우기</h2>
+  <p>머릿속을 맴도는 걱정을 한 줄 적어 불에 넣어 보세요. 글자는 불티가 되어 날아가고, 어디에도 저장되지 않아요.</p>
+  <label for="worry-input" class="sr-only">태울 걱정</label>
+  <input id="worry-input" maxlength="60" placeholder="예) 내일 발표를 망칠까 봐 불안해" autocomplete="off">
+  <div class="row">
+    <button type="button" class="btn" id="worry-close">닫기</button>
+    <button type="button" class="btn" id="worry-log">장작만 넣기</button>
+    <button type="submit" class="btn primary">불에 넣기</button>
+  </div>
+</form>
+
+<form class="hud panel" id="five-sheet" hidden aria-labelledby="five-title">
+  <div id="five-ask">
+    <h2 id="five-title">5분만 해 볼까요?</h2>
+    <p>계속 미루고 있는 일을 하나 적어요. 딱 5분만 하고, 그다음에 계속할지 정하면 돼요.</p>
+    <p id="five-count"></p>
+    <label for="five-input" class="sr-only">미뤄 둔 일</label>
+    <input id="five-input" maxlength="30" placeholder="예) 보고서 첫 문단 쓰기" autocomplete="off">
+    <div class="row">
+      <button type="button" class="btn" id="five-close">닫기</button>
+      <button type="submit" class="btn primary">5분 시작</button>
+    </div>
+  </div>
+  <div id="five-done" hidden>
+    <h2>해냈어요</h2>
+    <p id="five-done-msg"></p>
+    <div class="row">
+      <button type="button" class="btn" id="five-rest">여기까지 할래요</button>
+      <button type="button" class="btn primary" id="five-more">25분 더 하기</button>
+    </div>
+  </div>
+</form>
+
+<div class="hud panel" id="five" hidden>
+  <strong id="five-time">5:00</strong>
+  <span id="five-task"></span>
+  <button type="button" id="five-stop">그만하기</button>
+</div>
 
 <div id="talk-caption" hidden aria-live="polite">
   <span id="talk-caption-who"></span>
@@ -4256,6 +4319,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       const d = msg.data || {};
       if ((d.w || "mountain") !== world || world === "train") return;
       const text = typeof d.text === "string" ? d.text.replace(/[\u0000-\u001f]/g, "").slice(0, 40) : "";
+      if (world === "river") { launchBoat(num(d.x, -28, 28, 0), text || null); if (text) toast("누군가 종이배를 띄웠어요"); return; }
       launchLantern(V(num(d.x, -23, 23, 0), num(d.y, 0, 5, 1.5), num(d.z, -23, 23, 0)), text || null);
       if (text) toast("누군가 풍등을 띄웠어요");
     });
@@ -4486,7 +4550,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   }
   const ctxBtn = document.getElementById("ctx"), ctxLabel = document.getElementById("ctx-label"), ctxSub = document.getElementById("ctx-sub");
   const CTX = {
-    fire: ["장작 넣기", "모닥불"],
+    fire: ["걱정 태우기", "모닥불 · 장작"],
     lull: ["쉬 소리 듣기", "자장가 쉼터"],
     cat: ["쓰다듬기", "산고양이"],
     sky: ["풍등 띄우기", "마당"],
@@ -4497,7 +4561,8 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     feed: ["수유 시작", "시간 재기"],
     feedstop: ["수유 끝", "기록하기"],
     situp: ["일어나 앉기", "이부자리"],
-    bfire: ["장작 넣기", "바닷가 모닥불"],
+    bfire: ["걱정 태우기", "바닷가 모닥불"],
+    five: ["5분만 시작하기", "미뤄 둔 일"],
     fw: ["폭죽 터뜨리기", "밤바다"],
     board: ["쪽지 게시판", "읽기 · 붙이기"],
     odeng: ["어묵 한 꼬치", "포장마차"],
@@ -4509,7 +4574,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     let mode = null;
     if (world === "hanok") { if (Math.hypot(player.x, player.z) < 1.8) mode = "sky"; }
     else if (world === "train") mode = "chat";
-    else if (world === "cafe") mode = null;
+    else if (world === "cafe") mode = player.seated && seatKind[player.seat] === "study" ? "five" : null;
     else if (world === "nurse") mode = player.seated && isNurseSeat(player.seat) ? (feeding ? "feedstop" : "feed") : null;
     else if (world === "story") mode = player.seated && isFutonSeat(player.seat) ? (myLie ? "situp" : "lie") : null;
     else if (world === "talk") mode = player.seated && seatKind[player.seat] === "talk" ? "clap" : null;
@@ -4532,7 +4597,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   ctxBtn.addEventListener("click", () => {
     if (clock < ctxCool || !ctxMode) return;
     ctxCool = clock + 1.5;
-    if (ctxMode === "fire") addLog(false);
+    if (ctxMode === "fire") { ctxCool = clock + 0.2; openWorry("mountain"); }
     else if (ctxMode === "lull") soundBtn.click();
     else if (ctxMode === "sky") { document.getElementById("btn-lantern").click(); }
     else if (ctxMode === "chat") { ctxCool = clock + 0.2; openChat(); }
@@ -4540,7 +4605,8 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     else if (ctxMode === "lie" || ctxMode === "situp") { ctxCool = clock + 0.4; myLie = ctxMode === "lie"; pushPresence(); }
     else if (ctxMode === "clap") { ctxCool = clock + 1.2; clap(false, me.head); }
     else if (ctxMode === "barmenu") { ctxCool = clock + 0.2; chatSheet.hidden = true; barSheet.hidden = false; }
-    else if (ctxMode === "bfire") beachLog(false);
+    else if (ctxMode === "bfire") { ctxCool = clock + 0.2; openWorry("sea"); }
+    else if (ctxMode === "five") { ctxCool = clock + 0.2; openFive(); }
     else if (ctxMode === "fw") {
       const fx = player.x - Math.sin(player.yaw) * 2, fz = player.z - Math.cos(player.yaw) * 2;
       const c = Math.floor(Math.random() * FW_COLORS.length);
@@ -4687,6 +4753,7 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     document.getElementById("time-seg").hidden = w !== "mountain";
     document.getElementById("slot").textContent = w === "mountain" ? SLOT_LABEL[currentTime] : WORLD_INFO[w].label;
     if (audio) audio.setWorld(w);
+    setWishSheet(w === "river");
     pushPresence();
   }
   // =====================================================================
@@ -5157,9 +5224,10 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
   document.getElementById("busk-clap").addEventListener("click", () => buskClap(false));
   document.getElementById("busk-tip").addEventListener("click", () => buskTip(false));
 
-  function closeExtraSheets() { boardSheet.hidden = true; buskSheet.hidden = true; }
+  function closeExtraSheets() { boardSheet.hidden = true; buskSheet.hidden = true; if (typeof worrySheet !== "undefined") { worrySheet.hidden = true; fiveSheet.hidden = true; } }
   function updateExtras(dt) {
     updateBusk(dt);
+    updateMind(dt);
     const b = boards[world];
     if (b) {
       const k = reduced ? 1 : 1 + Math.sin(clock * 1.3) * 0.05 + Math.sin(clock * 7.1) * 0.015;
@@ -5171,6 +5239,202 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
       m.position.set(u.cx + Math.cos(a) * u.r, u.cy + Math.sin(a * 1.7) * 0.06, u.cz + Math.sin(a) * u.r);
     });
   }
+
+  // =====================================================================
+  // 마음 다스리기 — three small rituals tied to a place:
+  //   걱정 태우기 at the campfires, 5분만 시작하기 at the study café,
+  //   종이배 띄우기 on the Han river (instead of a sky lantern)
+  // =====================================================================
+
+  // ---------- 걱정 태우기: write a worry, drop it in the fire, watch it go up as sparks ----------
+  const worrySheet = document.getElementById("worry-sheet"), worryInput = document.getElementById("worry-input");
+  let worryFire = "mountain";
+  function openWorry(which) {
+    closeExtraSheets();
+    sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true;
+    worryFire = which;
+    worrySheet.hidden = false;
+    setTimeout(() => worryInput.focus(), 50);
+  }
+  document.getElementById("worry-close").addEventListener("click", () => { worrySheet.hidden = true; });
+  document.getElementById("worry-log").addEventListener("click", () => {
+    worrySheet.hidden = true;
+    if (worryFire === "sea") beachLog(false); else addLog(false);
+  });
+  const embers = [];
+  const emberV = new THREE.Vector3();
+  function fireSpot() { return worryFire === "sea" ? V(BF.x, 0.7, BF.z) : V(FIRE.x, 0.75, FIRE.z); }
+  // a folded note that flies from your hands into the fire
+  const notePaper = new THREE.MeshLambertMaterial({ color: 0xf4ecd8 });
+  let flyingNote = null;
+  worrySheet.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = worryInput.value.replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 60);
+    if (!text) { toast("걱정을 한 줄 적어 주세요"); return; }
+    worryInput.value = "";
+    worrySheet.hidden = true;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.02, 0.16), notePaper);
+    const from = V(player.x, groundY(player.x, player.z) + 0.9, player.z);
+    m.position.copy(from);
+    activeScene.add(m);
+    flyingNote = { m, from, to: fireSpot(), t: 0, text, sc: activeScene };
+  });
+  function burnNote(n) {
+    n.sc.remove(n.m);
+    if (worryFire === "sea") { bfLevel = Math.min(1.9, bfLevel + 0.5); if (audio) audio.crackle(1); }
+    else { fireLevel = Math.min(1.9, fireLevel + 0.5); spark(26); if (audio) audio.crackle(1); }
+    emit("log", {});   // others only see the fire flare up; the words never leave this screen
+    const chars = [...n.text];
+    chars.forEach((ch, i) => {
+      if (!ch.trim()) return;
+      const el = document.createElement("span");
+      el.className = "ember";
+      el.textContent = ch;
+      document.body.appendChild(el);
+      embers.push({ el, p: n.to.clone().add(V((Math.random() - 0.5) * 0.5, 0.2, (Math.random() - 0.5) * 0.5)), vx: (Math.random() - 0.5) * 0.5, vz: (Math.random() - 0.5) * 0.5, vy: 0.8 + Math.random() * 0.6, age: -i * 0.07, sc: n.sc });
+    });
+    setTimeout(() => toast("걱정이 불티가 되어 날아갔어요. 어디에도 남지 않아요"), 900);
+  }
+  function updateWorry(dt) {
+    if (flyingNote) {
+      const n = flyingNote;
+      n.t = Math.min(1, n.t + dt / 0.9);
+      n.m.position.lerpVectors(n.from, n.to, n.t);
+      n.m.position.y += Math.sin(n.t * Math.PI) * 0.9;
+      n.m.rotation.set(n.t * 6, n.t * 4, 0);
+      if (n.t >= 1) { flyingNote = null; burnNote(n); }
+    }
+    for (let i = embers.length - 1; i >= 0; i--) {
+      const em = embers[i];
+      em.age += dt;
+      if (em.age < 0) { em.el.style.opacity = "0"; continue; }
+      em.p.x += em.vx * dt; em.p.z += em.vz * dt; em.p.y += em.vy * dt;
+      em.vx += (Math.random() - 0.5) * dt; em.vz += (Math.random() - 0.5) * dt;
+      emberV.copy(em.p).project(camera);
+      const life = 2.6;
+      const vis = em.sc === activeScene && emberV.z < 1;
+      const k = em.age / life;
+      em.el.style.opacity = vis ? String(Math.max(0, k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85)) : "0";
+      em.el.style.left = ((emberV.x + 1) / 2 * window.innerWidth) + "px";
+      em.el.style.top = ((1 - emberV.y) / 2 * window.innerHeight) + "px";
+      em.el.style.color = k < 0.3 ? "#fff3d6" : k < 0.6 ? "#ffc070" : "#ff7a3a";
+      em.el.style.fontSize = Math.max(8, 20 - k * 12) + "px";
+      if (em.age > life) { em.el.remove(); embers.splice(i, 1); }
+    }
+  }
+
+  // ---------- 5분만 시작하기: name the thing you keep putting off, and do it for just five minutes ----------
+  const fiveSheet = document.getElementById("five-sheet"), fiveInput = document.getElementById("five-input");
+  const fiveAsk = document.getElementById("five-ask"), fiveDone = document.getElementById("five-done");
+  const fiveBox = document.getElementById("five"), fiveTime = document.getElementById("five-time"), fiveTask = document.getElementById("five-task");
+  const five = { on: false, task: "", end: 0, len: 300, round: 0 };
+  function todayKey() { const d = new Date(); return "stay-five-" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+  function todayCount() { try { return Number(localStorage.getItem(todayKey())) || 0; } catch (e) { return 0; } }
+  function openFive() {
+    closeExtraSheets();
+    sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true;
+    fiveAsk.hidden = false; fiveDone.hidden = true;
+    const c = todayCount();
+    document.getElementById("five-count").textContent = c ? "오늘 벌써 " + c + "번 시작했어요" : "";
+    fiveSheet.hidden = false;
+    setTimeout(() => fiveInput.focus(), 50);
+  }
+  function startFive(task, secs) {
+    five.on = true; five.task = task; five.len = secs; five.end = Date.now() + secs * 1000;
+    fiveTask.textContent = "「" + task + "」 하는 중";
+    fiveBox.hidden = false;
+    document.body.classList.add("five-on");
+  }
+  function stopFive() { five.on = false; fiveBox.hidden = true; document.body.classList.remove("five-on"); }
+  fiveSheet.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const task = fiveInput.value.replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 30);
+    if (!task) { toast("미뤄 둔 일을 한 줄 적어 주세요"); return; }
+    fiveInput.value = "";
+    fiveSheet.hidden = true;
+    try { localStorage.setItem(todayKey(), String(todayCount() + 1)); } catch (err) {}
+    startFive(task, 300);
+    toast("딱 5분만이에요. 끝나면 알려 드릴게요");
+  });
+  document.getElementById("five-close").addEventListener("click", () => { fiveSheet.hidden = true; });
+  document.getElementById("five-more").addEventListener("click", () => { fiveSheet.hidden = true; startFive(five.task, 1500); toast("좋아요, 25분 더 같이 해요"); });
+  document.getElementById("five-rest").addEventListener("click", () => { fiveSheet.hidden = true; toast("오늘은 여기까지. 시작한 것만으로도 잘했어요"); });
+  document.getElementById("five-stop").addEventListener("click", () => { stopFive(); toast("멈췄어요. 다음에 또 5분만 해 봐요"); });
+  function updateFive() {
+    if (!five.on) return;
+    fiveBox.hidden = world !== "cafe";
+    const left = Math.max(0, Math.ceil((five.end - Date.now()) / 1000));
+    fiveTime.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+    if (left === 0) {
+      stopFive();
+      if (audio) audio.chime();
+      closeExtraSheets();
+      fiveAsk.hidden = true; fiveDone.hidden = false;
+      document.getElementById("five-done-msg").textContent = five.len === 300
+        ? "「" + five.task + "」 5분 해냈어요. 시작이 제일 어려운데, 시작했어요."
+        : "「" + five.task + "」 25분 집중했어요. 잠깐 기지개 켜고 물 한 잔 마셔요.";
+      document.getElementById("five-more").hidden = five.len !== 300;
+      fiveSheet.hidden = false;
+    }
+  }
+
+  // ---------- 종이배 띄우기: on the river, a paper boat with a little candle drifts downstream ----------
+  const boats = [];
+  const boatPaper = new THREE.MeshLambertMaterial({ color: 0xf4eedf, side: THREE.DoubleSide });
+  const boatFlame = new THREE.MeshBasicMaterial({ color: 0xffd08a });
+  function makeBoat() {
+    const g = new THREE.Group();
+    const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.1, 0.09, 4, 1, true), boatPaper);
+    hull.rotation.y = Math.PI / 4; hull.scale.set(1.4, 1, 0.55); hull.position.y = 0.045; g.add(hull);
+    const sail = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 4, 1, true), boatPaper);
+    sail.rotation.y = Math.PI / 4; sail.scale.set(1.2, 1, 0.25); sail.position.y = 0.18; g.add(sail);
+    const flame = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), boatFlame);
+    flame.position.set(0.12, 0.1, 0); g.add(flame);
+    const glow = new THREE.PointLight(0xffb36a, 0.6, 2.2, 2); glow.position.set(0.12, 0.2, 0); g.add(glow);
+    return g;
+  }
+  function launchBoat(x, text) {
+    const g = makeBoat();
+    g.scale.setScalar(2.2);   // big enough to follow from the steps
+    g.position.set(x, RV.water + 0.02, -4.2);
+    sceneRiver.add(g);
+    const b = { g, age: 0, label: null, ph: Math.random() * 6, vz: -0.32 - Math.random() * 0.08, vx: 0.45 + Math.random() * 0.15 };
+    if (text) {
+      const el = document.createElement("div");
+      el.className = "wish";
+      el.textContent = text;
+      document.body.appendChild(el);
+      b.label = el;
+    }
+    boats.push(b);
+  }
+  const boatV = new THREE.Vector3();
+  function updateBoats(dt) {
+    for (let i = boats.length - 1; i >= 0; i--) {
+      const b = boats[i];
+      b.age += dt;
+      b.g.position.x += b.vx * dt; b.g.position.z += b.vz * dt;
+      b.g.position.y = RV.water + 0.02 + Math.sin(b.age * 1.6 + b.ph) * 0.03;
+      b.g.rotation.set(Math.sin(b.age * 1.3 + b.ph) * 0.08, -0.5 + Math.sin(b.age * 0.4) * 0.15, Math.sin(b.age * 1.1) * 0.06);
+      if (b.label) {
+        boatV.copy(b.g.position); boatV.y += 0.5; boatV.project(camera);
+        const vis = world === "river" && boatV.z < 1 && b.age < 22;
+        b.label.style.opacity = vis ? String(Math.max(0, 1 - b.age / 22)) : "0";
+        b.label.style.left = ((boatV.x + 1) / 2 * window.innerWidth) + "px";
+        b.label.style.top = ((1 - boatV.y) / 2 * window.innerHeight) + "px";
+      }
+      if (b.age > 90) { sceneRiver.remove(b.g); if (b.label) b.label.remove(); boats.splice(i, 1); }
+    }
+  }
+  // the lantern sheet doubles as the boat sheet on the river
+  function setWishSheet(river) {
+    document.getElementById("wish-title").textContent = river ? "종이배 띄우기" : "풍등 띄우기";
+    document.getElementById("wish-label").textContent = river ? "강물에 흘려보내고 싶은 마음 한 줄 (40자)" : "오늘 내려놓고 싶은 마음 한 줄 (40자)";
+    document.getElementById("wish-go").textContent = river ? "강물에 띄우기" : "하늘로 띄우기";
+    document.querySelector("#btn-lantern span").textContent = river ? "종이배" : "풍등";
+  }
+
+  function updateMind(dt) { updateWorry(dt); updateFive(); updateBoats(dt); }
 
   // ---------- choosing a place: the first screen, and any time later ----------
   const picker = document.getElementById("picker");
@@ -5255,6 +5519,8 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     if (world === "train") { toast("열차 안에서는 풍등을 띄울 수 없어요. 창밖을 바라봐요"); return; }
     if (world === "cafe" || world === "talk" || world === "story" || world === "nurse") { toast("실내에서는 풍등을 띄울 수 없어요. 창밖 빗소리를 들어보세요"); return; }
     if (world === "hanok" && !inCourtyard(player.x, player.z)) { toast("풍등은 마당에서 띄울 수 있어요"); return; }
+    setWishSheet(world === "river");
+    closeExtraSheets();
     sheet.hidden = false;
     setTimeout(() => wishInput.focus(), 50);
   });
@@ -5263,6 +5529,15 @@ body.hud-off #board-sheet, body.hud-off #busk-sheet { display: none !important; 
     e.preventDefault();
     const text = wishInput.value.trim().slice(0, 40);
     if (!text) { toast("한 줄을 적어야 띄울 수 있어요"); return; }
+    if (world === "river") {
+      const bx = Math.max(-28, Math.min(28, player.x));
+      launchBoat(bx, text);
+      emit("lantern", { x: Math.round(bx * 10) / 10, y: 0, z: 0, text, w: "river" });
+      wishInput.value = "";
+      sheet.hidden = true;
+      toast("종이배가 강물을 따라 천천히 흘러가요");
+      return;
+    }
     const from = V(player.x - Math.sin(player.yaw) * 2.2, groundY(player.x, player.z) + 1.4, player.z - Math.cos(player.yaw) * 2.2);
     launchLantern(from, text);
     emit("lantern", { x: Math.round(from.x * 10) / 10, y: Math.round(from.y * 10) / 10, z: Math.round(from.z * 10) / 10, text, w: world });
