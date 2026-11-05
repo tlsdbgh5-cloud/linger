@@ -425,6 +425,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--lamp); outl
 .shout-fx.echo { top: 22%; color: #ffe8c0; text-shadow: 0 0 14px rgba(255,200,120,0.6); }
 .shout-fx.far { top: 26%; }
 @keyframes shoutPop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(calc(var(--s) * 0.4)); } 12% { opacity: var(--o); transform: translate(-50%, -50%) scale(calc(var(--s) * 1.1)); } 70% { opacity: calc(var(--o) * 0.8); } 100% { opacity: 0; transform: translate(-50%, -110%) scale(calc(var(--s) * 1.3)); } }
+#scr-sheet { left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: min(440px, calc(100vw - 32px)); flex-direction: column; gap: 10px; padding: 16px; z-index: 9; }
+#scr-sheet .btn { min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--line); background: transparent; color: var(--paper); font: 500 14px var(--body); cursor: pointer; }
+#scr-sheet .btn.primary { background: var(--lamp); border-color: var(--lamp); color: var(--ink); font-weight: 700; }
+#scr-input { flex: 1; min-width: 0; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,0.25); color: var(--paper); padding: 0 12px; font: 15px var(--body); }
 #shout-sheet { left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: min(440px, calc(100vw - 32px)); flex-direction: column; gap: 10px; padding: 16px; z-index: 9; }
 #shout-sheet .btn { min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--line); background: transparent; color: var(--paper); font: 500 14px var(--body); cursor: pointer; }
 #shout-sheet .btn.primary { background: var(--lamp); border-color: var(--lamp); color: var(--ink); font-weight: 700; }
@@ -774,6 +778,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
 <div class="hud" id="nurse-bar" hidden>
   <button type="button" id="nb-music" aria-label="엄마방 소리" aria-expanded="false" aria-controls="n2-music" hidden>🔊</button>
   <button type="button" id="nb-lamp" aria-label="무탈 등" aria-expanded="false" aria-controls="lamp-sheet" hidden>🏮</button>
+  <button type="button" id="nb-scr" aria-label="전광판에 한마디" hidden>📺</button>
   <button type="button" id="nb-chat" aria-label="대화" aria-expanded="false" aria-controls="nurse-chat">💬</button>
 </div>
 <form class="hud panel" id="nurse-chat" hidden aria-label="엄마방 대화">
@@ -5857,6 +5862,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
     n2Animate(dt);
     updatePrints(dt);
     updateBag(dt);
+    updateScreen(dt);
     treeAnimate(dt);
     if (world === "nurse3") n3Animate(dt);
   }
@@ -6290,6 +6296,17 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
       const text = d.text.replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 60);
       if (text) { say(r.p.head, text); if (isNurseW(world)) logChat(r.name || "익명의 손님", text, false); }
     });
+    rm.on("scr", (msg) => {
+      if (msg.sameTab || !isN2(world)) return;
+      const d = msg.data || {}; if (typeof d.text !== "string") return;
+      const t = d.text.replace(/[\u0000-\u001f<>]/g, " ").trim().slice(0, 30);
+      if (t && !badLine(t)) scrAdd(t, false);
+    });
+    rm.on("scrh", (msg) => {
+      if (!isN2(world)) return;
+      const l = Array.isArray((msg.data || {}).l) ? msg.data.l : [];
+      l.slice(-12).forEach((t, i) => { if (typeof t === "string" && t.trim() && !badLine(t)) setTimeout(() => scrAdd(t.slice(0, 30), false), i * 700); });
+    });
     rm.on("punch", (msg) => {
       if (msg.sameTab) return;
       const r = remotes.get(msg.peer);
@@ -6720,7 +6737,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
     tips: ["육아 꿀팁 칠판", "작은 도서관"],
     info: ["육아 정보 게시판", "놓치면 안 돼요"],
     shout: ["소리 지르기", "천국의 계단 꼭대기"],
-    punch: ["샌드백 치기", "연타하면 콤보!"],
+    punch: ["샌드백 치기", "샌드백"],
     truth: ["진실의 방 들어가기", "혼자만 들어가요"],
     places: ["아이랑 갈 만한 곳", "추천 게시판"],
     stars: ["누워서 별 보기", "풀언덕"],
@@ -7367,6 +7384,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
     nurseBar.hidden = !on;
     document.getElementById("nb-music").hidden = !(on && isN2(world));
     document.getElementById("nb-lamp").hidden = !(on && isN2(world));
+    document.getElementById("nb-scr").hidden = !(on && isN2(world));
     momMenu.hidden = !on;
     if (!on) nChat.hidden = true;
   }
@@ -7605,48 +7623,39 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
   const TRUTH = { x: 22.4, z: -14.6, hw: 1.9, hd: 1.9, h: 2.7 };     // cabin centre and half sizes; the door faces west
   const BAG_PY = 3.3;
   const BAGS = [
-    { x: BTREE.x, z: BTREE.z - 2.55, c: 0xb8322a, py: 0.28, stand: true }, { x: BTREE.x, z: BTREE.z - 0.85, c: 0x2a5a9a, py: 0.28, stand: true },
-    { x: BTREE.x, z: BTREE.z + 0.85, c: 0x3a3a40, py: 0.28, stand: true }, { x: BTREE.x, z: BTREE.z + 2.55, c: 0xe08a2a, py: 0.28, stand: true },
-    { x: TRUTH.x + 0.95, z: TRUTH.z, c: 0xd04a6a, py: 2.45, truth: true }
+    { x: BTREE.x, z: BTREE.z, c: 0x6a2420, py: 0.36, stand: true, big: 1.45 }
   ];
+  const TRUTH_ON = false;     // 진실의 방 is switched off for now
   const BAG = BAGS[0];
-  BAGS.forEach((b) => { b.ax = 0; b.az = 0; b.vx = 0; b.vz = 0; b.sq = 0; b.pivot = null; b.body = null; });
+  BAGS.forEach((b) => { b.big = b.big || 1; b.ax = 0; b.az = 0; b.vx = 0; b.vz = 0; b.sq = 0; b.pivot = null; b.body = null; });
   const bagS = { n: 0, combo: 0, last: -9, lunge: 0, ldx: 0, ldz: 0, pend: [0, 0, 0, 0], sendT: 0 };
   let bagAC = null;
   const truth = { on: false, hits: 0, text: "", bulb: null, light: null, label: null, labelTex: null, sw: 0 };
   {
     const bark = toon(0x6a4a32), dark = toon(0x2a2a2e);
     const add = (geo, mat, x, y, z, par) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); (par || sceneNurse2).add(m); return m; };
-    { add(new THREE.BoxGeometry(2.4, 0.05, 7.4), toon(0x3a5a8a), BTREE.x - 0.2, 0.025, BTREE.z); [[-1.1, 0], [0.7, 0]].forEach((q) => add(new THREE.BoxGeometry(0.06, 0.02, 7.2), new THREE.MeshBasicMaterial({ color: 0xf2c46a }), BTREE.x + q[0], 0.06, BTREE.z)); }
+    { add(new THREE.CylinderGeometry(1.7, 1.7, 0.04, 36), toon(0x26242a), BTREE.x, 0.02, BTREE.z); }
     // the street lamp
-    const lx = BTREE.x - 3.1, lz = BTREE.z - 2.4, top = 4.2;
+    const lx = BTREE.x - 2.3, lz = BTREE.z - 0.9, top = 4.4;
     add(new THREE.CylinderGeometry(0.06, 0.09, top, 10), lampIron, lx, top / 2, lz);
     add(new THREE.CylinderGeometry(0.2, 0.24, 0.12, 12), lampIron, lx, 0.06, lz);
     const arm = add(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 6), lampIron, lx + 0.4, top, lz); arm.rotation.z = Math.PI / 2;
     add(new THREE.ConeGeometry(0.3, 0.26, 16, 1, true), lampIron, lx + 0.8, top - 0.1, lz);
     add(new THREE.SphereGeometry(0.12, 14, 10), lampBulb, lx + 0.8, top - 0.2, lz);
-    const pl = new THREE.PointLight(0xffd9a6, 1.9, 15, 1.4); pl.position.set(lx + 0.8, top - 0.4, lz); sceneNurse2.add(pl);
-    const beam = add(new THREE.ConeGeometry(1.8, top - 0.3, 24, 1, true), lampBeamMat.clone(), lx + 0.8, (top - 0.3) / 2, lz); beam.material.opacity = 0.09;
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(3.2, 32), lampPoolMat); pool.rotation.x = -Math.PI / 2; pool.position.set(lx + 1.4, 0.04, lz + 0.6); sceneNurse2.add(pool);
-    // a sign on the trunk
-    const sc = document.createElement("canvas"); sc.width = 256; sc.height = 128; const x = sc.getContext("2d");
-    const paint = () => { x.fillStyle = "#fff4e0"; x.fillRect(0, 0, 256, 128); x.strokeStyle = "#b8322a"; x.lineWidth = 8; x.strokeRect(4, 4, 248, 120);
-      x.fillStyle = "#b8322a"; x.textAlign = "center"; x.font = "700 46px 'Nanum Pen Script', 'Noto Sans KR', sans-serif"; x.fillText("스트레스 퍽!", 128, 62);
-      x.fillStyle = "#6a4a2a"; x.font = "28px 'Nanum Pen Script', 'Noto Sans KR', sans-serif"; x.fillText("가까이 가서 톡톡", 128, 104); };
-    paint(); const st = new THREE.CanvasTexture(sc);
-    add(new THREE.CylinderGeometry(0.04, 0.05, 1.5, 6), bark, BTREE.x + 0.9, 0.75, BTREE.z - 3.9); const sign = add(new THREE.PlaneGeometry(0.8, 0.4), new THREE.MeshBasicMaterial({ map: st, side: THREE.DoubleSide }), BTREE.x + 0.9, 1.6, BTREE.z - 3.9); sign.rotation.y = -Math.PI / 2;
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { paint(); st.needsUpdate = true; }).catch(() => {});
+    const pl = new THREE.PointLight(0xffc98a, 2.3, 10, 1.7); pl.position.set(lx + 0.8, top - 0.4, lz); sceneNurse2.add(pl);
+    const beam = add(new THREE.ConeGeometry(1.5, top - 0.3, 24, 1, true), lampBeamMat.clone(), lx + 0.8, (top - 0.3) / 2, lz); beam.material.opacity = 0.11;
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(3.2, 32), lampPoolMat); pool.rotation.x = -Math.PI / 2; pool.scale.setScalar(0.75); pool.position.set(lx + 1.6, 0.045, lz + 0.6); sceneNurse2.add(pool);
     // every bag hangs from a pivot so it can swing
     BAGS.forEach((B) => {
       const pv = new THREE.Group(); pv.position.set(B.x, B.py, B.z); sceneNurse2.add(pv); B.pivot = pv;
       if (B.stand) {
-        add(new THREE.CylinderGeometry(0.5, 0.56, 0.28, 24), dark, B.x, 0.14, B.z);
+        const bb = add(new THREE.CylinderGeometry(0.5, 0.56, 0.28, 24), dark, B.x, 0.14 * B.big, B.z); bb.scale.setScalar(B.big);
         add(new THREE.CylinderGeometry(0.12, 0.16, 0.2, 12), dark, 0, 0.08, 0, pv);
       } else {
         add(new THREE.CylinderGeometry(0.015, 0.015, 0.42, 6), dark, 0, -0.21, 0, pv);
         const up = 0.25; add(new THREE.CylinderGeometry(0.015, 0.015, up, 6), dark, 0, up / 2, 0, pv);
       }
-      const body = new THREE.Group(); body.position.set(0, B.stand ? 1.08 : -1.12, 0); pv.add(body); B.body = body;
+      const body = new THREE.Group(); body.position.set(0, B.stand ? 1.08 * B.big : -1.12, 0); body.scale.setScalar(B.big); pv.add(body); B.body = body;
       const leather = new THREE.MeshLambertMaterial({ color: B.c });
       add(new THREE.CylinderGeometry(0.34, 0.34, 1.2, 20), leather, 0, 0, 0, body);
       add(new THREE.SphereGeometry(0.34, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), leather, 0, 0.6, 0, body);
@@ -7654,6 +7663,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
       [0.42, -0.42].forEach((y) => add(new THREE.CylinderGeometry(0.348, 0.348, 0.07, 20), dark, 0, y, 0, body));
       add(new THREE.CylinderGeometry(0.35, 0.35, 0.22, 20), new THREE.MeshLambertMaterial({ color: 0xf2efe6 }), 0, 0.05, 0, body);
     });
+    if (TRUTH_ON) {
     // ---- 진실의 방: a small log cabin under a steep dark roof, the door on the west gable ----
     const T = TRUTH, wallIn = new THREE.MeshLambertMaterial({ color: 0x3a3040, side: THREE.DoubleSide });
     const logA = toon(0x5a3a28), logB = toon(0x4c3020), logEnd = toon(0x8a6446), roofM = toon(0x2c2430), trim = toon(0x3a2a1e), stone = toon(0x5a5660);
@@ -7740,19 +7750,20 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
     const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.31), new THREE.MeshBasicMaterial({ map: lt, transparent: true, side: THREE.DoubleSide }));
     lab.position.set(-0.36, 0.1, 0); lab.rotation.y = -Math.PI / 2; lab.visible = false; BAGS[4].body.add(lab);
     truth.label = lab; truth.labelCv = lc; truth.labelTex = lt;
+    }
   }
   function bagAt(x, z) {
-    let best = -1, bd = truth.on ? 3 : 2.4;
+    let best = -1, bd = truth.on ? 3 : 2.9;
     BAGS.forEach((B, i) => { if (!!B.truth !== truth.on) return; const d = Math.hypot(x - B.x, z - B.z); if (d < bd) { bd = d; best = i; } });
     return best;
   }
   const nearBag = (x, z) => bagAt(x, z) >= 0;
   const inCabin = (x, z, m) => Math.abs(x - TRUTH.x) < TRUTH.hw + m && Math.abs(z - TRUTH.z) < TRUTH.hd + m;
-  const nearCabinDoor = (x, z) => !truth.on && Math.hypot(x - (TRUTH.x - TRUTH.hw - 0.9), z - TRUTH.z) < 1.6;
+  const nearCabinDoor = (x, z) => TRUTH_ON && !truth.on && Math.hypot(x - (TRUTH.x - TRUTH.hw - 0.9), z - TRUTH.z) < 1.6;
   function bagBlocks(x, z) {
     if (truth.on) return !inCabin(x, z, -0.3) || Math.hypot(x - BAGS[4].x, z - BAGS[4].z) < 0.55;
-    if (inCabin(x, z, 0.25)) return true;
-    return BAGS.some((B) => !B.truth && Math.hypot(x - B.x, z - B.z) < 0.5);
+    if (TRUTH_ON && inCabin(x, z, 0.25)) return true;
+    return BAGS.some((B) => !B.truth && Math.hypot(x - B.x, z - B.z) < 0.5 * B.big + 0.2);
   }
   // the hit: a heavy thud, a slap of leather, the bag swings away and squashes
   function bagSound(power) {
@@ -7778,10 +7789,10 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
   const BAG_CHEERS = { 10: "시원하다!", 20: "속이 뻥!", 30: "오늘 최고!", 50: "챔피언 엄마!" };
   const bagV = new THREE.Vector3();
   function bagPop(B, text, big) {
-    bagV.set(B.x, B.stand ? 1.3 : B.py - 1.1, B.z).project(camera);
+    bagV.set(B.x, B.stand ? 1.3 * B.big : B.py - 1.1, B.z).project(camera);
     if (bagV.z > 1) return;
     const rc = canvas.getBoundingClientRect();
-    const el = document.createElement("div"); el.className = "punch-fx" + (big ? " big" : ""); el.textContent = text;
+    const el = document.createElement("div"); el.className = "punch-fx" + (big ? " big" : ""); el.textContent = text; if (!text) el.style.display = "none";
     el.style.left = (rc.left + (bagV.x * 0.5 + 0.5) * rc.width + (Math.random() - 0.5) * 60) + "px";
     el.style.top = (rc.top + (-bagV.y * 0.5 + 0.5) * rc.height - 30 + (Math.random() - 0.5) * 30) + "px";
     document.body.appendChild(el); setTimeout(() => el.remove(), 900);
@@ -7795,10 +7806,8 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
     bagSound(mine ? 1 : 0.4);
     if (!mine) return;
     bagS.combo = clock - bagS.last < 0.9 ? bagS.combo + 1 : 1; bagS.last = clock; bagS.n++;
-    bagPop(B, BAG_WORDS[Math.floor(Math.random() * BAG_WORDS.length)], bagS.combo >= 5);
+    bagPop(B, "", false);
     if (B.truth) truthHit();
-    else if (bagS.combo >= 3) toast(bagS.combo + " 연타!" + (BAG_CHEERS[bagS.combo] ? " " + BAG_CHEERS[bagS.combo] : ""));
-    else if (BAG_CHEERS[bagS.n]) toast("오늘 " + bagS.n + "번째 · " + BAG_CHEERS[bagS.n]);
     if (typeof shakeT !== "undefined") shakeT = Math.max(shakeT, 0.22 + Math.min(0.3, bagS.combo * 0.03));
     bagS.lunge = 0.16; bagS.ldx = dx; bagS.ldz = dz;
   }
@@ -7819,7 +7828,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
       B.ax = Math.max(-lim, Math.min(lim, B.ax + B.vx * dt)); B.az = Math.max(-lim, Math.min(lim, B.az + B.vz * dt));
       if (B.stand) { B.pivot.rotation.z = -B.ax; B.pivot.rotation.x = B.az; } else { B.pivot.rotation.z = B.ax; B.pivot.rotation.x = -B.az; }
       B.sq = Math.max(0, B.sq - dt * 7);
-      const s = B.sq * 0.14; B.body.scale.set(1 + s, 1 - s * 0.7, 1 + s);
+      const s = B.sq * 0.14; B.body.scale.set(B.big * (1 + s), B.big * (1 - s * 0.7), B.big * (1 + s));
     });
     bagS.lunge = Math.max(0, bagS.lunge - dt);
     bagS.sendT -= dt;
@@ -7902,6 +7911,85 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
   }
   const truthExit = document.createElement("button"); truthExit.type = "button"; truthExit.id = "truth-exit"; truthExit.textContent = "방에서 나가기"; truthExit.hidden = true;
   truthExit.addEventListener("click", () => leaveTruth(false)); document.body.appendChild(truthExit);
+  // ---- 큰 전광판: behind you as you face the view, a big black screen where mums' messages drift across ----
+  const SCR = { x: 0, z: 31, y: 16, w: 44, h: 24.75 };
+  const scrCv = document.createElement("canvas"); scrCv.width = 1280; scrCv.height = 720;
+  const scrTex = new THREE.CanvasTexture(scrCv);
+  {
+    const g = new THREE.Group(); g.position.set(SCR.x, 0, SCR.z); g.rotation.y = Math.PI; sceneNurse2.add(g);
+    const frameM = new THREE.MeshLambertMaterial({ color: 0x1a1a22 });
+    const fr = new THREE.Mesh(new THREE.BoxGeometry(SCR.w + 1.2, SCR.h + 1.2, 0.8), frameM); fr.position.set(0, SCR.y, -0.45); g.add(fr);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(SCR.w, SCR.h), new THREE.MeshBasicMaterial({ map: scrTex, fog: false })); face.position.set(0, SCR.y, 0); g.add(face);
+    [-1, 1].forEach((k) => { const leg = new THREE.Mesh(new THREE.BoxGeometry(1.0, SCR.y - SCR.h / 2 + 0.5, 1.0), frameM); leg.scale.y = 1; leg.position.set(k * SCR.w * 0.32, (SCR.y - SCR.h / 2) / 2 - 6, -0.5); leg.scale.y = (SCR.y - SCR.h / 2 + 12) / (SCR.y - SCR.h / 2 + 0.5); g.add(leg); });
+    const glowC = document.createElement("canvas"); glowC.width = glowC.height = 128; const gx = glowC.getContext("2d");
+    const gr = gx.createRadialGradient(64, 64, 8, 64, 64, 64); gr.addColorStop(0, "rgba(180,170,220,0.18)"); gr.addColorStop(1, "rgba(180,170,220,0)"); gx.fillStyle = gr; gx.fillRect(0, 0, 128, 128);
+    const halo = new THREE.Mesh(new THREE.PlaneGeometry(SCR.w * 1.7, SCR.h * 1.9), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowC), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    halo.position.set(0, SCR.y, -1.0); g.add(halo);
+    const sl = new THREE.PointLight(0xd8d0ff, 0.4, 40, 1.4); sl.position.set(0, SCR.y - 6, 8); g.add(sl);
+  }
+  const SCR_MSGS = ["우리 아기도 지금 같이 들어요 ♥", "쉬~ 소리 최고예요ㅠㅠ", "3시간째 안 자는 중… 같이 버텨요", "드디어 잠들었다!!!", "등센서 발동 직전ㅋㅋ", "다들 새벽 수유 화이팅", "이 노래 틀면 10분 컷", "7개월 아기 엄마예요 반가워요", "토닥토닥 우리 모두 수고했어요", "내려놓기 성공…🙏", "오늘도 무사히", "자장자장 우리 아기", "눈 감았다 떴다 반복 중ㅋㅋ", "엄마도 졸려요…", "백일의 기적 오길"];
+  const scrDanmaku = [];
+  let scrT = 0, scrNext = 0, scrRow = 0, scrLastReal = -999;
+  function scrAdd(text, mine, seed) {
+    if (!seed) scrLastReal = clock;
+    if (scrDanmaku.length > 40) scrDanmaku.splice(0, scrDanmaku.length - 40);
+    scrRow = (scrRow + 1 + Math.floor(Math.random() * 4)) % 10;
+    scrDanmaku.push({ t: text, x: 1280 + 20 + Math.random() * 80, y: 80 + scrRow * 64, v: 150 + Math.random() * 60, mine: !!mine });
+  }
+  const STAR = Array.from({ length: 90 }, (_, i) => [h01(i, 601) * 1280, h01(i, 602) * 600, 0.6 + h01(i, 603) * 1.8, h01(i, 604) * 6.28]);
+  function drawScreen(dt) {
+    scrT += dt;
+    const c = scrCv.getContext("2d"), W = 1280, H = 720;
+    // a plain black screen, only the messages
+    c.fillStyle = "#000"; c.fillRect(0, 0, W, H);
+    // the messages, drifting right to left like live comments
+    scrNext -= dt;
+    if (scrNext <= 0) { scrNext = 2.6 + Math.random() * 2.4; if (clock - scrLastReal > 40) scrAdd(SCR_MSGS[Math.floor(Math.random() * SCR_MSGS.length)], false, true); }
+    c.textAlign = "left"; c.font = "700 36px 'Noto Sans KR', sans-serif";
+    for (let i = scrDanmaku.length - 1; i >= 0; i--) {
+      const m = scrDanmaku[i]; m.x -= m.v * dt;
+      const w = c.measureText(m.t).width; if (m.x < -w - 20) { scrDanmaku.splice(i, 1); continue; }
+      
+      c.fillStyle = m.mine ? "#ffd27a" : "#ffffff"; c.fillText(m.t, m.x, m.y);
+    }
+    scrTex.needsUpdate = true;
+  }
+  window.__scrPrime = (sec) => { for (let i = 0; i < sec * 10; i++) drawScreen(0.1); return scrCv.toDataURL("image/png"); };
+  let scrAcc = 0;
+  function updateScreen(dt) { scrAcc += dt; if (scrAcc > 1 / 15) { drawScreen(scrAcc); scrAcc = 0; } }
+  // writing to the screen
+  const SCR_CHIPS = ["다들 화이팅!", "드디어 잠들었어요", "같이 버텨요", "등센서 발동ㅠㅠ", "새벽 수유 중", "오늘도 수고했어요"];
+  let scrSentAt = 0;
+  const scrSheet = document.createElement("div");
+  scrSheet.className = "hud panel"; scrSheet.id = "scr-sheet"; scrSheet.hidden = true; scrSheet.setAttribute("role", "dialog"); scrSheet.setAttribute("aria-label", "전광판에 한마디");
+  {
+    const head = document.createElement("div"); head.className = "sheet-head";
+    const hs = document.createElement("strong"); hs.textContent = "전광판에 한마디";
+    const hc = document.createElement("button"); hc.type = "button"; hc.className = "btn"; hc.textContent = "닫기"; hc.addEventListener("click", () => { scrSheet.hidden = true; });
+    head.append(hs, hc); scrSheet.appendChild(head);
+    const p = document.createElement("p"); p.className = "info-warn"; p.textContent = "나무 뒤 큰 전광판에 흘러가요. 이 방 엄마들 모두에게 보이고, 이름은 안 보여요.";
+    scrSheet.appendChild(p);
+    const chips = document.createElement("div"); chips.className = "tip-cats shout-chips";
+    const row = document.createElement("div"); row.className = "shout-row";
+    const inp = document.createElement("input"); inp.id = "scr-input"; inp.maxLength = 30; inp.autocomplete = "off"; inp.placeholder = "한 줄 쓰기 (30자)";
+    const go = document.createElement("button"); go.type = "button"; go.className = "btn primary"; go.textContent = "보내기";
+    const send = () => {
+      const t = String(inp.value || "").replace(/[\u0000-\u001f<>]/g, " ").trim().slice(0, 30);
+      if (!t) { toast("한 줄 적어 주세요"); return; }
+      if (badLine(t)) { toast("다른 표현으로 적어 주세요"); return; }
+      if (Date.now() - scrSentAt < 5000) { toast("조금만 있다가 다시 보내 주세요"); return; }
+      scrSentAt = Date.now(); inp.value = ""; scrSheet.hidden = true;
+      scrAdd(t, true); emit("scr", { text: t });
+      toast("전광판에 띄웠어요. 뒤돌아 보세요");
+    };
+    SCR_CHIPS.forEach((t) => { const b = document.createElement("button"); b.type = "button"; b.textContent = t; b.addEventListener("click", () => { inp.value = t; send(); }); chips.appendChild(b); });
+    go.addEventListener("click", send);
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); send(); } });
+    row.append(inp, go);
+    scrSheet.append(chips, row);
+    document.body.appendChild(scrSheet);
+  }
+  function openScr() { closeExtraSheets(); sheet.hidden = true; chatSheet.hidden = true; barSheet.hidden = true; scrSheet.hidden = false; setTimeout(() => { const i = document.getElementById("scr-input"); if (i) i.focus(); }, 60); }
   // ---- 작은 도서관: the tips corner in 엄마방 — a long chalkboard of tips, a notice board of
   // childcare changes worth knowing, and a board of places to go with a little one ----
   const TIP_CATS = ["안 잘 때", "엄마 껌딱지", "밥 안 먹을 때", "울음 그치기", "외출할 때", "엄마 마음"];
@@ -8364,6 +8452,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
   }
   document.getElementById("board-close").addEventListener("click", () => { boardSheet.hidden = true; });
   window.__openBoard = openBoard;
+  document.getElementById("nb-scr").addEventListener("click", () => { if (scrSheet.hidden) openScr(); else scrSheet.hidden = true; });
   const infoSheet = document.createElement("div");
   infoSheet.className = "hud panel"; infoSheet.id = "info-sheet"; infoSheet.hidden = true; infoSheet.setAttribute("role", "dialog"); infoSheet.setAttribute("aria-label", "놓치면 안 되는 육아 정보");
   {
@@ -8639,7 +8728,7 @@ body.hud-off #worry-sheet, body.hud-off #five-sheet, body.hud-off #five { displa
   document.getElementById("busk-clap").addEventListener("click", () => buskClap(false));
   document.getElementById("busk-tip").addEventListener("click", () => buskTip(false));
 
-  function closeExtraSheets() { lampSel = -1; document.getElementById("n2-music").hidden = true; document.getElementById("lamp-sheet").hidden = true; document.getElementById("nb-lamp").setAttribute("aria-expanded", "false"); boardSheet.hidden = true; buskSheet.hidden = true; { const ifs = document.getElementById("info-sheet"); if (ifs) ifs.hidden = true; const shs = document.getElementById("shout-sheet"); if (shs) shs.hidden = true; } if (typeof worrySheet !== "undefined") { worrySheet.hidden = true; fiveSheet.hidden = true; } }
+  function closeExtraSheets() { lampSel = -1; document.getElementById("n2-music").hidden = true; document.getElementById("lamp-sheet").hidden = true; document.getElementById("nb-lamp").setAttribute("aria-expanded", "false"); boardSheet.hidden = true; buskSheet.hidden = true; { const ifs = document.getElementById("info-sheet"); if (ifs) ifs.hidden = true; const shs = document.getElementById("shout-sheet"); if (shs) shs.hidden = true; const scs = document.getElementById("scr-sheet"); if (scs) scs.hidden = true; } if (typeof worrySheet !== "undefined") { worrySheet.hidden = true; fiveSheet.hidden = true; } }
   function updateExtras(dt) {
     updateBusk(dt);
     updateMind(dt);
